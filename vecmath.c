@@ -113,6 +113,7 @@ mat4_mul(const mat4* a, const mat4* b) {
     .m = {0}
   };
 
+  // naiive implementation
   for (unsigned char i = 0; i < 4; i++) {
     for (unsigned char j = 0; j < 4; j++) {
       res.m[i][j] = 0.0f;
@@ -131,7 +132,7 @@ vec4_identity() {
     .x = 0.0f,
     .y = 0.0f,
     .z = 0.0f,
-    .w = 0.0f,
+    .w = 1.0f,
   };
 }
 

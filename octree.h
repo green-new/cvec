@@ -3,7 +3,6 @@
 
 #include "vecmath.h"
 
-
 typedef struct aabb {
    vec min;
    vec max;
@@ -19,13 +18,14 @@ typedef struct octree_node {
    world_object m_objects;
 
    octree_node* m_children[8];
+   octree_node* m_parent;
 
    int m_isLeaf;
 } octree_node;
 
 struct octree_t {
    /**  */
-
+   octree_node* m_root;
 };
 
 #endif // OCTREE_H
