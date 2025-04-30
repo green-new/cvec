@@ -1,5 +1,5 @@
-#include "vecmath.h"
-#include "math.h"
+#include "math/vec.h"
+#include <math.h>
 
 #ifndef VECMATH_IMPL__
 #define VECMATH_IMPL__
