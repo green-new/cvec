@@ -1,8 +1,8 @@
 #include "math/vec.h"
 #include <math.h>
 
-#ifndef VECMATH_IMPL__
-#define VECMATH_IMPL__
+#ifndef VEC_IMPL__
+#define VEC_IMPL__
 
 vec
 vec_add(const vec* a, const vec* b) {

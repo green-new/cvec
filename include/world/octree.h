@@ -3,6 +3,7 @@
 
 #include "math/vec.h"
 #include "entity/entity.h"
+#include "world/worldPlane.h"
 
 typedef struct aabb {
 
@@ -13,7 +14,7 @@ typedef struct aabb {
 } AABB;
 
 typedef struct OctreeNode {
-   Entity objects;
+   WorldPlane objects;
 
    OctreeNode* children[8];
    OctreeNode* parent;
@@ -22,8 +23,8 @@ typedef struct OctreeNode {
 } OctreeNode;
 
 typedef struct Octree {
-   /**  */
-   
+   /** Root of the octree. */
+   OctreeNode* root;
 } Octree;
 
 #endif // OCTREE_H
