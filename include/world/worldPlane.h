@@ -5,10 +5,10 @@
 
 typedef struct WorldPlane {
 
-   vec a;
-   vec b;
-   vec c;
-   vec d;
+    vec a;
+    vec b;
+    vec c;
+    vec d;
 
 } WorldPlane;
 

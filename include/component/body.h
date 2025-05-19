@@ -2,13 +2,13 @@
 
 typedef struct Body {
 
-   int anchored;
+    int anchored;
 
-   float mass;
-   float temperature;
-   float restituion;
+    float mass;
+    float temperature;
+    float restituion;
 
-   vec velocity;
-   vec force;
+    vec velocity;
+    vec force;
 
 } Body;

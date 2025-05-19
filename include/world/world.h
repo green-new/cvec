@@ -15,13 +15,13 @@
 
 typedef struct World {
 
-   Light lights[WORLD_MAX_LIGHTS];
+    Light lights[WORLD_MAX_LIGHTS];
 
-   WorldVertex vertices[WORLD_MAX_VERTICES];
-   WorldEdge edges[WORLD_MAX_EDGES];
-   WorldPlane planes[WORLD_MAX_PLANES];
+    WorldVertex vertices[WORLD_MAX_VERTICES];
+    WorldEdge edges[WORLD_MAX_EDGES];
+    WorldPlane planes[WORLD_MAX_PLANES];
 
-   Entity entities[ENTITY_MAX_ENTITIES];
+    Entity entities[ENTITY_MAX_ENTITIES];
 
 } World;
 

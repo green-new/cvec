@@ -6,31 +6,31 @@
  * @brief Mathematical vector of 3 floating-point values.
  */
 typedef struct vec {
-  /**
-  * @brief X value of the vector.
-  */
-  float x;
+    /**
+     * @brief X value of the vector.
+     */
+    float x;
 
-  /**
-  * @brief Y value of the vector.
-  */
-  float y;
-  
-  /**
-  * @brief Z value of the vector.
-  */
-  float z;
+    /**
+     * @brief Y value of the vector.
+     */
+    float y;
+    
+    /**
+     * @brief Z value of the vector.
+     */
+    float z;
 } vec;
 
 typedef struct vec4 {
-  float x;
-  float y;
-  float z;
-  float w;
+    float x;
+    float y;
+    float z;
+    float w;
 } vec4;
 
 typedef struct mat4 {
-  float m[4][4];
+    float m[4][4];
 } mat4;
 
 /**
@@ -94,7 +94,7 @@ vec4_mul(const vec4* a, const vec4* b);
  * @return The multipled vector
  */
 vec
-vec_mul(const vec* a, float s);
+vec_muls(const vec* a, float s);
 
 /**
  * @brief Divide a given vector by the scalar amount

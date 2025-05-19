@@ -6,11 +6,11 @@
 
 typedef struct CollideEvent {
    
-   Entity p;
-   Entity q;
+    Entity p;
+    Entity q;
 
-   vec position;
-   vec impulse_point;
+    vec position;
+    vec impulse_point;
 
 } CollideEvent;
 

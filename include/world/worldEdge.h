@@ -5,8 +5,8 @@
 
 typedef struct WorldEdge {
 
-   WorldVertex* a;
-   WorldVertex* b;
+    WorldVertex* a;
+    WorldVertex* b;
 
 } WorldEdge;
 

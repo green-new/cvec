@@ -4,8 +4,8 @@
 #include "math/vec.h"
 
 typedef union Color {
-   char rgba[4];
-   unsigned int value;
+    char rgba[4];
+    unsigned int value;
 } Color;
 
 vec4

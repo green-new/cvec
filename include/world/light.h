@@ -6,9 +6,9 @@
 
 typedef struct Light {
 
-   float intensity;
-   Color color;
-   vec direction;
+    float intensity;
+    Color color;
+    vec direction;
 
 } Light;
 

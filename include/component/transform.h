@@ -2,7 +2,7 @@
 
 typedef struct Transform {
 
-   vec position;
-   vec scale;
+    vec position;
+    vec scale;
    
 } Transform;

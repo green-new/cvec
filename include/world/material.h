@@ -5,9 +5,9 @@
 
 typedef struct Material {
 
-   Color baseColor;
+    Color baseColor;
 
-   float reflectivity;
+    float reflectivity;
 
 } Material;
 

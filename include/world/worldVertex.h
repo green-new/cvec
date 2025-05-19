@@ -9,13 +9,13 @@
 
 typedef struct WorldVertex {
 
-   vec position;
-   vec normal;
-   vec texture;
-   
-   Color color;
+    vec position;
+    vec normal;
+    vec texture;
+    
+    Color color;
 
-   Material material;
+    Material material;
 
 
 } WorldVertex;

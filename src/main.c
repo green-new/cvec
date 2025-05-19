@@ -1,25 +1,14 @@
 
-void init(void) {
-  printf("Initializing program");
-}
-
-void run(void) {
-  printf("Running main loop")
-}
-
-void exit(void) {
-  printf("Closing the application");
-  exit(0);
-}
+#include "game/engine.h"
 
 int main(int argc, char** argv) {
-  printf("Hello world");
+    printf("Hello world");
 
-  init();
+    Engine engine;
 
-  run();
+    engine_init(&engine);
+    engine_run(&engine);
+    engine_stop(&engine);
 
-  exit();
-
-  return 0;
+    return 0;
 }

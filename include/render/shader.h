@@ -4,16 +4,16 @@
 #include "math/vec.h"
 
 typedef enum ShaderResult {
-   SUCCESS = 0,
-   ABORTED = 1,
-   INVALID_FILENAME = 2,
-   FAILED_LINK = 3,
-   UNIFORM_NOT_FOUND = 4
+    SUCCESS = 0,
+    ABORTED = 1,
+    INVALID_FILENAME = 2,
+    FAILED_LINK = 3,
+    UNIFORM_NOT_FOUND = 4
 };
 
 typedef struct Shader {
-   const char* name;
-   unsigned int id;
+    const char* name;
+    unsigned int id;
 } Shader;
 
 ShaderResult

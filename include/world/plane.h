@@ -4,8 +4,8 @@
 #include "math/vec.h"
 
 typedef struct Plane {
-   float d;
-   vec normal;
+    float d;
+    vec normal;
 } Plane;
 
 
