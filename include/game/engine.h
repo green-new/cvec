@@ -1,6 +1,8 @@
 #ifndef ENGINE_H__
 #define ENGINE_H__
 
+#include "game/window.h"
+
 typedef enum EngineResult {
     SUCCESS = 0,
     FAILURE = 1
@@ -8,7 +10,7 @@ typedef enum EngineResult {
 
 typedef struct Engine {
 
-    
+    Window window;
 
 } Engine;
 
