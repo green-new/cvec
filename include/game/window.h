@@ -21,7 +21,7 @@ typedef struct Window {
  * @param width The width of the window.
  * @param height The height of the window.
  * @param SDL_flags The SDL flags to add to the window.
- * @returns WindowCreateResult
+ * @returns Window
  */
 Window
 window_create(
