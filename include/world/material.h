@@ -3,12 +3,12 @@
 
 #include "render/color.h"
 
-typedef struct Material {
+typedef struct material {
 
-    Color baseColor;
+    Color base_color;
 
-    float reflectivity;
+    float reflect;
 
-} Material;
+} material;
 
 #endif

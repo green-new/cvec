@@ -1,7 +1,9 @@
 #ifndef RENDER_H_
 #define RENDER_H_
 
-#include "stdio.h"
+#include <stdio.h>
+
+#include "vulkan/vulkan.h"
 
 /**
  * Custom allocator for vulkan objects.
@@ -20,7 +22,7 @@ vk_create() {
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "starseed";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "No Engine";
+    appInfo.pEngineName = "nan";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_0;
 

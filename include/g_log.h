@@ -6,6 +6,16 @@
 
 #define LOG_MAX_MESSAGE_LENGTH 512
 
+typedef enum log_type {
+    LOG_INFO,
+    LOG_WARNING,
+    LOG_ERROR
+} log_type;
+
+typedef enum log_origin_type {
+
+} log_origin_type;
+
 typedef struct log_node {
     char msg[LOG_MAX_MESSAGE_LENGTH];
     size_t len;
