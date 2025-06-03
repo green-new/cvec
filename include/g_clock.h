@@ -4,6 +4,7 @@
 #include "SDL3/SDL.h"
 
 /**
+ * @struct clock
  * @brief Represents the game clock.
  */
 typedef struct clock {
@@ -44,13 +45,13 @@ typedef struct clock {
     int fpsTick;
 
     /* The render frequency. */
-    const double renderFreq;
+    double renderFreq;
 
     /* The physics frequency. */
-    const double physFreq;
+    double physFreq;
 
     /* The FPS frequency. */
-    const double fpsFreq;
+    double fpsFreq;
 } clock;
 
 /**
@@ -65,7 +66,7 @@ clock_update(clock* clock) {
 
     clock->physTick = ((float)(clock->currTime - clock->physTime) > (1.0f / clock->physFreq));
     clock->renderTick = ((float)(clock->currTime - clock->renderTime) > (1.0f / clock->renderFreq));
-    clock->fpsTick = ((float)(clock->currTime - clock->renderTime) > (1.0f / 1000.0f));
+    clock->fpsTick = ((float)(clock->currTime - clock->fpsTime) > (1.0f / 1000.0f));
 
     // update physics tick
     if (clock->physTick) {
@@ -92,18 +93,18 @@ clock_update(clock* clock) {
 void
 clock_reset(clock* clock) {
     // reset all values in the clock
-    clock->currTime = 0.0f;
-    clock->prevTime = 0.0f;
-    clock->deltaTime = 0.0f;
-    clock->physTick = 0.0f;
-    clock->renderTick = 0.0f;
-    clock->fpsTick = 0.0f;
-    clock->physTime = 0.0f;
-    clock->renderTime = 0.0f;
-    clock->fpsTime = 0.0f;
-    clock->physDelta = 0.0f;
-    clock->renderDelta = 0.0f;
-    clock->fpsDelta = 0.0f;
+    clock->currTime = 0.0;
+    clock->prevTime = 0.0;
+    clock->deltaTime = 0.0;
+    clock->physTick = 0;
+    clock->renderTick = 0;
+    clock->fpsTick = 0;
+    clock->physTime = 0.0;
+    clock->renderTime = 0.0;
+    clock->fpsTime = 0.0;
+    clock->physDelta = 0.0;
+    clock->renderDelta = 0.0;
+    clock->fpsDelta = 0.0;
 }
 
 
