@@ -1,14 +1,16 @@
 
 #include "g_game.h"
 
+#include <stdio.h>
+
 int main(int argc, char** argv) {
     printf("Hello world");
 
-    game game;
+    Game game;
 
-    game_init(&game);
-    game_run(&game);
-    game_stop(&game);
+    G_Init(&game);
+    G_Start(&game);
+    G_Stop(&game);
 
     return 0;
 }

@@ -1,19 +1,24 @@
 #ifndef WINDOW_H_
 #define WINDOW_H_
 
-#include "SDL3/SDL.h"
+#include <SDL3/SDL.h>
 
-typedef struct window {
+typedef struct {
 
+    /** SDL pointer to the window */
     SDL_Window* handle;
 
+    /** Title of the window */
     const char* title;
-    int width;
-    int height;
+
+    /** Width of the window */
+    uint32_t width;
+    /** Height of the window */
+    uint32_t height;
+    /** SDL flags for the window */
     uint32_t flags;
 
-} window;
-
+} Window;
 
 /**
  * @brief Create an SDL window.
@@ -21,23 +26,15 @@ typedef struct window {
  * @param width The width of the window.
  * @param height The height of the window.
  * @param SDL_flags The SDL flags to add to the window.
- * @returns WindowCreateResult
+ * @returns `Window`
  */
-window
+Window
 window_create(
     const char* title,
     int width,
     int height,
     uint32_t flags
-) {
-    return (window) {
-        .handle = SDL_CreateWindow(title, width, height, flags),
-        .title = title,
-        .width = width,
-        .height = height,
-        .flags = flags
-    };
-}
+);
 
 /**
  * Destroy the given SDL window.
@@ -45,9 +42,7 @@ window_create(
  * @returns void
  */
 void
-window_destroy(window* window) {
-    SDL_DestroyWindow(window->handle);
-}
+window_destroy(Window* window);
 
 
 #endif

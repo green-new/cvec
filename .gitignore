@@ -1,0 +1,7 @@
+subprojects/**
+builddir/**
+obj
+bin
+log
+deps/**
+.vscode

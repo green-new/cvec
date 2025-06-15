@@ -1,7 +1,7 @@
 #ifndef VEC_H_
 #define VEC_H_
 
-#include "math.h"
+#include <math.h>
 
 /**
  * @struct vec

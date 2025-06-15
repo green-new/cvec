@@ -1,7 +1,7 @@
 #ifndef EVENT_H_
 #define EVENT_H_
 
-#include "time.h"
+#include <time.h>
 #include <stdint.h>
 #include <stddef.h>
 
