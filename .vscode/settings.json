@@ -66,6 +66,14 @@
         "cfenv": "c",
         "cinttypes": "c",
         "typeinfo": "c",
-        "variant": "c"
-    }
+        "variant": "c",
+        "sdl_vulkan.h": "c"
+    },
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/tristen/repo/cvec/bin",
+            "binaryPath": "/home/tristen/repo/cvec/bin/cgame.exe",
+            "binaryArgs": []
+        }
+    ]
 }

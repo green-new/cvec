@@ -9,10 +9,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <vulkan/vulkan.h>
-#include <SDL3/SDL.h>
+#include "vulkan/vulkan.h"
+#include "SDL3/SDL.h"
 
 #include "c_utils.h"
+
+#define NDEBUG 1 // are we debug mode?
 
 typedef struct {
     int none_graphics_family;
@@ -33,12 +35,20 @@ typedef struct {
 
 #define CGAME_REQURIED_EXTENSIONS 1
 #define CGAME_DYNAMIC_STATES_COUNT 2
+#define CGAME_VALIDATION_LAYERS_COUNT 1
+
+/* Determines if we should use validation layers */
+extern const int enable_validation_layers;
 
 /* List of required extensions */
 extern const char* required_exts[CGAME_REQURIED_EXTENSIONS];
 
 /* List of dynamic states used by the application */
 extern const VkDynamicState dynamic_states[CGAME_DYNAMIC_STATES_COUNT];
+
+/* List of validation layers */
+extern const char* validation_layers[CGAME_VALIDATION_LAYERS_COUNT];
+
 
 /**
  * Determine if the provided physical device is suitable
@@ -196,5 +206,14 @@ R_DrawFrame(
     VkQueue present_queue,
     VkPipeline pipeline
 );
+
+/**
+ * Determine vulkan's validation layer support based on our validation_layers
+ * variable.
+ * @returns True if vulkan supports all of our specified validation_layers, 
+ * false if even one is not.
+ */
+int
+R_CheckValidationLayerSupport();
 
 #endif

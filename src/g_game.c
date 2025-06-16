@@ -4,8 +4,91 @@
 #include "c_log.h"
 #include "r_render.h"
 
+VkResult 
+S_CreateDebugUtilsMessengerEXT(
+    VkInstance instance, 
+    const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
+    const VkAllocationCallbacks* pAllocator, 
+    VkDebugUtilsMessengerEXT* pDebugMessenger
+) {
+    PFN_vkCreateDebugUtilsMessengerEXT func 
+        = (PFN_vkCreateDebugUtilsMessengerEXT) 
+            vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != NULL) {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    } else {
+        G_Log("ERROR", "Could not find vkCreateDebugUtilsMessengerEXT.");
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
+/* Debugging message callback for vulkan */
+VKAPI_ATTR VkBool32 VKAPI_CALL R_CoreVulkanDebugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT msg_severity,
+    VkDebugUtilsMessageTypeFlagsEXT msg_type,
+    const VkDebugUtilsMessengerCallbackDataEXT* callback,
+    void* user_data) {
+
+    #define MSG_MAX 4096
+
+    char msg[MSG_MAX] = { 0 };
+    
+    // Start with the main message
+    int offset = snprintf(
+        msg, 
+        MSG_MAX,
+        "%s", 
+        callback->pMessage);
+    
+    // Concatenate object information
+    if (callback->objectCount > 0) {
+        offset += snprintf(
+            msg + offset, 
+            MSG_MAX - offset,
+            "\n=== Vulkan Objects ===\n"
+        );
+        for (Uint32 i = 0; i < callback->objectCount && offset < MSG_MAX; i++) {
+            const VkDebugUtilsObjectNameInfoEXT* obj = &callback->pObjects[i];
+            
+            offset += snprintf(msg + offset, MSG_MAX - offset, 
+                "Object[%u]: Type=%d, Handle=0x%lx, Name=%s\n",
+                i,
+                obj->objectType,
+                (unsigned long)obj->objectHandle,
+                obj->pObjectName ? obj->pObjectName : "unnamed");
+        }
+    }
+    
+    // Log the complete message
+    if (msg_severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        G_Log("VULKAN_ERROR", msg);
+    } else {
+        G_Log("VULKAN", msg);
+    }
+    
+    return VK_FALSE;
+}
+
+void 
+S_DestroyDebugUtilsMessengerEXT(
+    VkInstance instance, 
+    VkDebugUtilsMessengerEXT debugMessenger, 
+    const VkAllocationCallbacks* pAllocator
+) {
+    PFN_vkDestroyDebugUtilsMessengerEXT func 
+        = (PFN_vkDestroyDebugUtilsMessengerEXT) 
+            vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != NULL) {
+        func(instance, debugMessenger, pAllocator);
+    }
+}
+
 void
 G_Init(Game* game) {
+
+    G_Log("INFO", "Initializing game.");
+
+    game->running = 0;
 
     // initialize sdl
     const SDL_InitFlags init_flags = 
@@ -14,6 +97,7 @@ G_Init(Game* game) {
 
     if (SDL_Init(init_flags) != 1) {
         printf("SDL init failed: %s\n", SDL_GetError());
+        return;
     }
 
     // create window
@@ -24,21 +108,29 @@ G_Init(Game* game) {
         SDL_WINDOW_VULKAN
     );
 
-    if (game->window.handle != NULL) {
+    if (game->window.handle == NULL) {
         G_Log("ERROR", "Error creating window.");
         return;
     }
 
     game->clock = (Clock) { 0 };
 
+    /* Determine validation layers */
+
+    int validation_layers_supported = R_CheckValidationLayerSupport();
+    if (enable_validation_layers && !validation_layers_supported) {
+        G_Log("ERROR", "Validation layers were enabled but not supported.");
+        return;
+    }
+
     /* Initialize vulkan */
-    VkApplicationInfo appInfo = { 0 };
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "cgame";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_0;
+    VkApplicationInfo app_info = { 0 };
+    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    app_info.pApplicationName = "cgame";
+    app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    app_info.pEngineName = "engine";
+    app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    app_info.apiVersion = VK_API_VERSION_1_0;
 
     // use sdl to get vulkan extensions
     Uint32 count_inst_exts;
@@ -55,20 +147,52 @@ G_Init(Game* game) {
 
     int exts_count = count_inst_exts + 1;
     const char** exts = SDL_malloc(exts_count * sizeof(const char*));
-    exts[0] = VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
+    exts[0] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
     SDL_memcpy(&exts[1], inst_exts, count_inst_exts * sizeof(const char*));
+    // TODO probably not right
 
-    /** Create the vulkan instance. */
-    VkInstanceCreateInfo vk_inst_create_info = {0};
+    VkInstanceCreateInfo vk_inst_create_info = { 0 };
     vk_inst_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    vk_inst_create_info.pApplicationInfo = &appInfo;
+    vk_inst_create_info.pApplicationInfo = &app_info;
     vk_inst_create_info.enabledExtensionCount = exts_count;
     vk_inst_create_info.ppEnabledExtensionNames = exts;
-
-    vk_inst_create_info.enabledLayerCount = 0;
+    if (enable_validation_layers) {
+        vk_inst_create_info.enabledLayerCount = CGAME_VALIDATION_LAYERS_COUNT;
+        vk_inst_create_info.ppEnabledLayerNames = validation_layers; 
+    } else {
+        vk_inst_create_info.enabledLayerCount = 0;
+    }
 
     if (vkCreateInstance(&vk_inst_create_info, NULL, &game->vk)) {
         G_Log("ERROR", "Failed to create vulkan instance.");
+        return;
+    }
+
+    /* Setup debug message callback */
+
+    VkDebugUtilsMessengerCreateInfoEXT debug_create_info = { 0 };
+    debug_create_info.sType 
+        = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    debug_create_info.messageSeverity 
+        = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT 
+        | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT 
+        | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    debug_create_info.messageType 
+        = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT 
+        | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT 
+        | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    debug_create_info.pfnUserCallback = R_CoreVulkanDebugCallback;
+    debug_create_info.pUserData = NULL; // Optional
+
+    // need to fetch the address of the function that creates the debug
+    // messenger
+    if (S_CreateDebugUtilsMessengerEXT(
+        game->vk,
+        &debug_create_info,
+        NULL,
+        &game->debug_messenger
+    ) != VK_SUCCESS) {
+        G_Log("ERROR", "Failed to create debug messenger.");
         return;
     }
     
@@ -102,21 +226,27 @@ G_Init(Game* game) {
     }
 
     phys_devices = SDL_malloc(device_count * sizeof(VkPhysicalDevice));
+    if (!phys_devices) {
+        G_Log("ERROR", "Error allocating memory for physical devices array.");
+        return;
+    }
     vkEnumeratePhysicalDevices(game->vk, &device_count, phys_devices);
 
     // select the first device based on suitability
     for (Uint32 i = 0; i < device_count; i++) {
-        if (R_IsPhysicalDeviceSuitable(phys_device, khr_surface)) {
+        if (R_IsPhysicalDeviceSuitable(phys_devices[i], game->surface)) {
+            G_Log("INFO", "Found suitable physical device.");
             phys_device = phys_devices[i];
             break;
         }
     }
 
     // If this assertion failed, then there is no suitable graphics device.
-    if (!phys_device) {
+    if (phys_device == VK_NULL_HANDLE) {
         G_Log("ERROR", "Failed to fetch suitable physical device.");
         return;
     }
+
     game->gpu = phys_device;
 
     /* Create logical device */
@@ -143,7 +273,8 @@ G_Init(Game* game) {
     if (indices.graphics_family == indices.present_family) {
         unique_queue_families_count = 1;
         // families are the same and one can be used
-        unique_queue_families = SDL_malloc(unique_queue_families_count * sizeof(Uint32));
+        unique_queue_families 
+            = SDL_malloc(unique_queue_families_count * sizeof(Uint32));
 
         unique_queue_families[0] = 
             indices.graphics_family | indices.present_family;
@@ -188,7 +319,7 @@ G_Init(Game* game) {
     device_create_info.queueCreateInfoCount = unique_queue_families_count;
     device_create_info.pQueueCreateInfos = queue_create_infos;
 
-    VkDevice device = VK_NULL_HANDLE;
+    VkDevice device;
     if (vkCreateDevice(
         game->gpu, 
         &device_create_info, 
@@ -199,11 +330,11 @@ G_Init(Game* game) {
         return;
     }
 
+    game->device = device;
+
     /* Create vulkan queues */
     vkGetDeviceQueue(game->device, indices.graphics_family, 0, &game->queue);
     vkGetDeviceQueue(game->device, indices.present_family, 0, &game->present_queue);
-
-    game->device = device;
 
     /* Create swap chain */
 
@@ -303,9 +434,25 @@ G_Init(Game* game) {
 
     /* Create the images buffer for actually rendering to the screen */
 
-    vkGetSwapchainImagesKHR(device, swapchain, &game->image_size, NULL);
+    if (vkGetSwapchainImagesKHR(
+        device, 
+        swapchain, 
+        &game->image_size, 
+        NULL
+    ) != VK_SUCCESS) {
+        G_Log("ERROR", "Could not fetch swapchain image size.");
+        return;
+    }
     game->images = SDL_malloc(game->image_size * sizeof(VkImage));
-    vkGetSwapchainImagesKHR(device, swapchain, &game->image_size, game->images);
+    if (vkGetSwapchainImagesKHR(
+        device, 
+        swapchain, 
+        &game->image_size, 
+        game->images
+    ) != VK_SUCCESS) {
+        G_Log("ERROR", "Could not fetch swapchain images.");
+        return;
+    }
 
     /* create image views */
     game->image_view_size = game->image_size;
@@ -344,22 +491,22 @@ G_Init(Game* game) {
     }
 
     /* Create our graphics pipeline */
-    if (R_CreateRenderPass(
+    if (!R_CreateRenderPass(
         game->device, 
         game->swapchain_format.format,
         &game->render_pass
-    ) != VK_SUCCESS) {
+    )) {
         G_Log("ERROR", "Error creating render pass.");
         return;
     }
 
-    if (R_CreateGraphicsPipeline(
+    if (!R_CreateGraphicsPipeline(
         game->device,
         game->swapchain_extent,
         game->render_pass,
         &game->pipeline_layout,
         &game->pipeline
-    ) != VK_SUCCESS) {
+    )) {
         G_Log("ERROR", "Error creating graphics pipeline.");
         return;
     }
@@ -437,6 +584,7 @@ G_Init(Game* game) {
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VkFenceCreateInfo fence_create_info = { 0 };
     fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     if (vkCreateSemaphore(
         game->device, 
         &semaphore_info, 
@@ -503,31 +651,47 @@ G_Start(Game* game) {
                 G_Stop(game);
             }
         }
-
-        vkDeviceWaitIdle(game->device);
     }
 }
 
 void 
 G_Stop(Game* game) {
+    G_Log("INFO", "Stopping game.");
+
+    // wait for device to finish stuff
+    vkDeviceWaitIdle(game->device);
+
     // clean up vulkan stuff
+
+    game->running = 0;
+
     vkDestroySemaphore(game->device, game->image_available, NULL);
     vkDestroySemaphore(game->device, game->render_finished, NULL);
     vkDestroyFence(game->device, game->inflight_fence, NULL);
+
     vkDestroyCommandPool(game->device, game->command_pool, NULL);
+
     for (Uint32 i = 0; i < game->framebuffer_size; i++) {
         vkDestroyFramebuffer(game->device, game->framebuffers[i], NULL);
     }
+
     vkDestroyPipeline(game->device, game->pipeline, NULL);
     vkDestroyPipelineLayout(game->device, game->pipeline_layout, NULL);
     vkDestroyRenderPass(game->device, game->render_pass, NULL);
+
     for (Uint32 i = 0; i < game->image_view_size; i++) {
         VkImageView view = game->image_views[i];
         vkDestroyImageView(game->device, view, NULL);
     }
+
     vkDestroySwapchainKHR(game->device, game->swapchain, NULL);
-    vkDestroySurfaceKHR(game->vk, game->surface, NULL);
     vkDestroyDevice(game->device, NULL);
+
+    if (enable_validation_layers) {
+        S_DestroyDebugUtilsMessengerEXT(game->vk, game->debug_messenger, NULL);
+    }
+
+    vkDestroySurfaceKHR(game->vk, game->surface, NULL);
     vkDestroyInstance(game->vk, NULL);
 
     window_destroy(&game->window);

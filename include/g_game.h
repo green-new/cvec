@@ -1,10 +1,11 @@
 #ifndef GAME_H_
 #define GAME_H_
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h>
-#include <vulkan/vulkan.h>
+#define SDL_VULKAN_CORE_H_
+#include "SDL3/SDL.h"
+#include "SDL3/SDL_vulkan.h"
 
+#include "vulkan/vulkan.h"
 #include "g_window.h"
 #include "g_clock.h"
 
@@ -72,6 +73,8 @@ typedef struct Game {
     VkSemaphore image_available;
     VkSemaphore render_finished;
     VkFence inflight_fence;
+
+    VkDebugUtilsMessengerEXT debug_messenger;
 } Game;
 
 /**

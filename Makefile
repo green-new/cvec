@@ -5,18 +5,11 @@ CC := gcc
 # -fanalyzer - shows deep analysis of code
 CFLAGS := -g -Wall -std=c99 -pedantic -O0
 
-# include dirs
-CPPFLAGS := -Iinclude
+CPPFLAGS := -Ideps/SDL3/include -Iinclude
+LDLIBS := -lvulkan 
 
 # SDL3 paths (built locally)
-SDL3_INCLUDE := deps/SDL3/include
 SDL3_LIB := deps/SDL3/libSDL3.a
-
-# Include SDL3 headers
-CPPFLAGS += -I$(SDL3_INCLUDE)
-
-# Vulkan (system installation via Vulkan SDK)
-LDLIBS := -lvulkan
 
 # SDL3 requires some system libraries on Linux
 ifeq ($(shell uname -s),Linux)
@@ -64,12 +57,15 @@ $(SDL3_LIB):
 	@exit 1
 
 # link each object file into the executable using gcc
-$(OUTPUT): $(OBJS) $(SDL3_LIB) | $(BIND)
+$(OUTPUT): $(OBJS) $(SDL3_LIB) shaders | $(BIND)
 	$(CC) $(OBJS) $(SDL3_LIB) $(LDLIBS) -o $@
 
 # compile each src file and put into obj directory
 $(OBJD)/%.o: $(SRCD)/%.c | $(OBJD)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+shaders:
+	cp -r shader/ ${BIND}/
 
 # clean the project of binaries and object files
 clean:

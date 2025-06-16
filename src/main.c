@@ -4,9 +4,9 @@
 #include <stdio.h>
 
 int main(int argc, char** argv) {
-    printf("Hello world");
+    printf("Hello world\n");
 
-    Game game;
+    Game game = { 0 };
 
     G_Init(&game);
     G_Start(&game);

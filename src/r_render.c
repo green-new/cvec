@@ -13,6 +13,16 @@ const VkDynamicState dynamic_states[CGAME_DYNAMIC_STATES_COUNT] = {
     VK_DYNAMIC_STATE_SCISSOR
 };
 
+const char* validation_layers[CGAME_VALIDATION_LAYERS_COUNT] = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
+#ifdef NDEBUG
+    const int enable_validation_layers = 1;
+#else
+    const int enable_validation_layers = 0;
+#endif
+
 VkSurfaceFormatKHR
 R_ChooseSwapSurfaceFormat(const VkSurfaceFormatKHR* formats, Uint32 size) {
     static VkFormat acceptable_format = VK_FORMAT_B8G8R8A8_SRGB;
@@ -97,7 +107,7 @@ R_QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface) {
         &details.formats_count, 
         NULL);
     details.formats 
-    = SDL_malloc(details.formats_count * sizeof(VkSurfaceFormatKHR));
+        = SDL_malloc(details.formats_count * sizeof(VkSurfaceFormatKHR));
     vkGetPhysicalDeviceSurfaceFormatsKHR(
         device, 
         surface, 
@@ -113,7 +123,7 @@ R_QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface) {
         NULL);
     
     details.present_modes 
-        = SDL_malloc(details.formats_count * sizeof(VkPresentModeKHR));
+        = SDL_malloc(details.present_modes_count * sizeof(VkPresentModeKHR));
 
     vkGetPhysicalDeviceSurfacePresentModesKHR(
         device, 
@@ -146,7 +156,7 @@ R_CheckDeviceExtensionSupport(VkPhysicalDevice device) {
         const char* required_ext = required_exts[i];
         for (Uint32 j = 0; j < ext_count; j++) {
             VkExtensionProperties device_ext = available_exts[j];
-            if (strcmp(required_ext, device_ext.extensionName) == 1) {
+            if (strcmp(required_ext, device_ext.extensionName) == 0) {
                 fulfilled--;
                 break; // goto the next iteration
             }
@@ -177,6 +187,7 @@ R_IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
     int swapchain_good = 0;
 
     if (exts_supported) {
+        G_Log("INFO", "Defined extensions supported.");
         swapchain_support_details swapchain_support = R_QuerySwapChainSupport(
             device, surface
         );
@@ -226,6 +237,7 @@ R_FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &supported);
 
         if (supported) {
+            indices.none_present_family = 0;
             indices.present_family = i;
         }
 
@@ -249,11 +261,11 @@ R_CreateGraphicsPipeline(
 ) {
     buffer vert_shader = { 0 }, frag_shader = { 0 };
     
-    if (!C_ReadBinaryFile("./shaders/vert.spv", &vert_shader)) {
+    if (!C_ReadBinaryFile("./shader/vert.spv", &vert_shader)) {
         G_Log("ERROR", "Failed to read vert shader.");
         return 0;
     }
-    if (!C_ReadBinaryFile("./shaders/frag.spv", &frag_shader)) {
+    if (!C_ReadBinaryFile("./shader/frag.spv", &frag_shader)) {
         G_Log("ERROR", "Failed to read vert shader.");
         return 0;
     }
@@ -261,8 +273,15 @@ R_CreateGraphicsPipeline(
     VkShaderModule vert_shader_mod = R_CreateShaderModule(device, &vert_shader);
     VkShaderModule frag_shader_mod = R_CreateShaderModule(device, &frag_shader);
 
+    if (
+        vert_shader_mod == VK_NULL_HANDLE 
+        || frag_shader_mod == VK_NULL_HANDLE
+    ) {
+        G_Log("ERROR", "Failed to create one of the shader modules.");
+        return 0;
+    }
     // vertex shader
-    VkPipelineShaderStageCreateInfo vert_create_info;
+    VkPipelineShaderStageCreateInfo vert_create_info = { 0 };
     vert_create_info.sType 
         = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vert_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -270,7 +289,7 @@ R_CreateGraphicsPipeline(
     vert_create_info.pName = "main";
     
     // fragment shader
-    VkPipelineShaderStageCreateInfo frag_create_info;
+    VkPipelineShaderStageCreateInfo frag_create_info = { 0 };
     frag_create_info.sType 
         = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     frag_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -388,7 +407,6 @@ R_CreateGraphicsPipeline(
     color_blend_st_create_info.blendConstants[3] = 0.0f; 
 
     // create the pipeline layout
-    VkPipelineLayout pipeline_layout = { 0 };
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = { 0 };
     pipeline_layout_create_info.sType 
         = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -397,17 +415,15 @@ R_CreateGraphicsPipeline(
     pipeline_layout_create_info.pushConstantRangeCount = 0; 
     pipeline_layout_create_info.pPushConstantRanges = NULL;
 
-    if (!vkCreatePipelineLayout(
+    if (vkCreatePipelineLayout(
         device, 
         &pipeline_layout_create_info, 
         NULL, 
-        &pipeline_layout)
-    ) {
+        out_layout
+    ) != VK_SUCCESS) {
         G_Log("ERROR", "Failed to create pipeline layout.");
         return 0;
     }
-
-    *out_layout = pipeline_layout;
 
     VkGraphicsPipelineCreateInfo pipeline_create_info = { 0 };
     pipeline_create_info.sType 
@@ -422,7 +438,7 @@ R_CreateGraphicsPipeline(
     pipeline_create_info.pDepthStencilState = NULL; // we will do this later
     pipeline_create_info.pColorBlendState = &color_blend_st_create_info;
     pipeline_create_info.pDynamicState = &dyn_state_create_info;
-    pipeline_create_info.layout = pipeline_layout;
+    pipeline_create_info.layout = *out_layout;
     pipeline_create_info.renderPass = render_pass;
     pipeline_create_info.subpass = 0;
     // base pipelines are optional - allows you to create pipelines based on
@@ -430,17 +446,15 @@ R_CreateGraphicsPipeline(
     pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
     pipeline_create_info.basePipelineIndex = -1;
 
-    VkPipeline graphics_pipeline;
-
     if (vkCreateGraphicsPipelines(
         device,
         VK_NULL_HANDLE,
         1,
         &pipeline_create_info,
         NULL,
-        &graphics_pipeline
+        out_pipeline
     ) != VK_SUCCESS) {
-        return 1;
+        return 0;
     }
 
     // free shader data
@@ -456,13 +470,27 @@ R_CreateGraphicsPipeline(
 
 VkShaderModule 
 R_CreateShaderModule(VkDevice device, const buffer* binary) {
+    // binary was not the right size
+    if (binary->size % 4 != 0) {
+        G_Log("ERROR", "Shader binary size was not a multiple of 4.");
+        return VK_NULL_HANDLE;
+    }
     VkShaderModuleCreateInfo create_info = { 0 };
     create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     create_info.codeSize = binary->size;
     create_info.pCode = (const Uint32*) binary->data; // cast to uint32 pointer
     // technically undefined behavior, probably?
-    VkShaderModule module = { 0 };
-    vkCreateShaderModule(device, &create_info, NULL, &module);
+    VkShaderModule module;
+    
+    if (vkCreateShaderModule(
+        device, 
+        &create_info, 
+        NULL, 
+        &module
+    ) != VK_SUCCESS) {
+        G_Log("ERROR", "Failed to create shader module.");
+        return VK_NULL_HANDLE;
+    }
 
     return module;
 }
@@ -481,7 +509,7 @@ R_CreateRenderPass(
     color_attach.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     // we do nothing with stencil data
     color_attach.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attach.stencilStoreOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attach.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     // we use the swap chain to render the image
     color_attach.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     color_attach.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -516,12 +544,12 @@ R_CreateRenderPass(
     render_pass_create_info.pDependencies = &dependency;
     
 
-    if (!vkCreateRenderPass(
+    if (vkCreateRenderPass(
         device, 
         &render_pass_create_info, 
         NULL, 
-        render_pass)
-    ) {
+        render_pass
+    ) != VK_SUCCESS) {
         return 0;
     }
 
@@ -585,7 +613,7 @@ R_RecordCommandBuffer(
     vkCmdEndRenderPass(buffer);
 
     if (vkEndCommandBuffer(buffer) != VK_SUCCESS) {
-        G_Log("ERROR", "Error end recording commnand buffer.");
+        G_Log("ERROR", "Error end recording command buffer.");
         return 0;
     }
 
@@ -608,6 +636,9 @@ R_DrawFrame(
     VkQueue present_queue,
     VkPipeline pipeline
 ) {
+    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &fence);
+
     Uint32 image_index = 0;
     vkAcquireNextImageKHR(
         device, 
@@ -663,6 +694,36 @@ R_DrawFrame(
     present_info.pImageIndices = &image_index;
     present_info.pResults = NULL; // Optional
     vkQueuePresentKHR(present_queue, &present_info);
+
+    return 1;
+}
+
+int
+R_CheckValidationLayerSupport() {
+    Uint32 layer_count = 0;
+    vkEnumerateInstanceLayerProperties(&layer_count, NULL);
+
+    VkLayerProperties* props 
+        = SDL_malloc(layer_count * sizeof(VkLayerProperties));
+
+    vkEnumerateInstanceLayerProperties(&layer_count, props);
+
+    for (Uint32 i = 0; i < CGAME_VALIDATION_LAYERS_COUNT; i++) {
+        const char* layer_name = validation_layers[i];
+        int found = 0;
+
+        for (Uint32 j = 0; j < layer_count; j++) {
+            VkLayerProperties prop = props[j];
+            if (strcmp(layer_name, prop.layerName) == 0) {
+                found = 1;
+                break;
+            }
+        }
+
+        if (!found) {
+            return 0;
+        }
+    }
 
     return 1;
 }

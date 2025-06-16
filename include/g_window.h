@@ -1,7 +1,7 @@
 #ifndef WINDOW_H_
 #define WINDOW_H_
 
-#include <SDL3/SDL.h>
+#include "SDL3/SDL.h"
 
 typedef struct {
 
