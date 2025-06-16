@@ -261,11 +261,11 @@ R_CreateGraphicsPipeline(
 ) {
     buffer vert_shader = { 0 }, frag_shader = { 0 };
     
-    if (!C_ReadBinaryFile("./shader/vert.spv", &vert_shader)) {
+    if (!C_ReadBinaryFile("./shader/shader.vert.spv", &vert_shader)) {
         G_Log("ERROR", "Failed to read vert shader.");
         return 0;
     }
-    if (!C_ReadBinaryFile("./shader/frag.spv", &frag_shader)) {
+    if (!C_ReadBinaryFile("./shader/shader.frag.spv", &frag_shader)) {
         G_Log("ERROR", "Failed to read vert shader.");
         return 0;
     }

@@ -37,7 +37,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL R_CoreVulkanDebugCallback(
     int offset = snprintf(
         msg, 
         MSG_MAX,
-        "%s", 
+        "%s\n", 
         callback->pMessage);
     
     // Concatenate object information
@@ -45,7 +45,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL R_CoreVulkanDebugCallback(
         offset += snprintf(
             msg + offset, 
             MSG_MAX - offset,
-            "\n=== Vulkan Objects ===\n"
+            "=== Vulkan Objects ===\n"
         );
         for (Uint32 i = 0; i < callback->objectCount && offset < MSG_MAX; i++) {
             const VkDebugUtilsObjectNameInfoEXT* obj = &callback->pObjects[i];
