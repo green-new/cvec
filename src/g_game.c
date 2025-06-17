@@ -91,9 +91,7 @@ G_Init(Game* game) {
     game->running = 0;
 
     // initialize sdl
-    const SDL_InitFlags init_flags = 
-        SDL_INIT_VIDEO 
-        | SDL_INIT_EVENTS;
+    const SDL_InitFlags init_flags = SDL_INIT_VIDEO | SDL_INIT_EVENTS;
 
     if (SDL_Init(init_flags) != 1) {
         printf("SDL init failed: %s\n", SDL_GetError());
@@ -101,7 +99,7 @@ G_Init(Game* game) {
     }
 
     // create window
-    game->window = window_create(
+    game->window = G_CreateWindow(
         "C game",
         800,
         600,
@@ -251,7 +249,7 @@ G_Init(Game* game) {
 
     /* Create logical device */
 
-    queue_family_indices indices = R_FindQueueFamilies(game->gpu, game->surface);
+    QueueFamilyIndices indices = R_FindQueueFamilies(game->gpu, game->surface);
 
     VkDeviceQueueCreateInfo queue_create_info = { 0 };
     queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -338,7 +336,7 @@ G_Init(Game* game) {
 
     /* Create swap chain */
 
-    swapchain_support_details swapchain_support = R_QuerySwapChainSupport(
+    SwapchainSupportDetails swapchain_support = R_QuerySwapChainSupport(
         game->gpu, game->surface
     );
     VkSurfaceFormatKHR surface_format = R_ChooseSwapSurfaceFormat(
@@ -384,7 +382,7 @@ G_Init(Game* game) {
     // will be used as a simple color sequence for displaying.
     
     // configure the swapchain create info based on the current queue families
-    Uint32 swapchain_queue_family_indices[2] = {
+    Uint32 swapchain_QueueFamilyIndices[2] = {
         indices.graphics_family,
         indices.present_family
     };
@@ -396,7 +394,7 @@ G_Init(Game* game) {
         // families without explicit ownership transfers.
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         swapchain_create_info.queueFamilyIndexCount = 2;
-        swapchain_create_info.pQueueFamilyIndices = swapchain_queue_family_indices;
+        swapchain_create_info.pQueueFamilyIndices = swapchain_QueueFamilyIndices;
     } else {
         // graphics family and present family are the same
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -694,7 +692,7 @@ G_Stop(Game* game) {
     vkDestroySurfaceKHR(game->vk, game->surface, NULL);
     vkDestroyInstance(game->vk, NULL);
 
-    window_destroy(&game->window);
+    G_DestroyWindow(&game->window);
 
     game->running = 0;
 }

@@ -67,7 +67,8 @@
         "cinttypes": "c",
         "typeinfo": "c",
         "variant": "c",
-        "sdl_vulkan.h": "c"
+        "sdl_vulkan.h": "c",
+        "stdlib.h": "c"
     },
     "makefile.launchConfigurations": [
         {

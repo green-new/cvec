@@ -29,7 +29,7 @@ typedef struct {
  * @returns `Window`
  */
 Window
-window_create(
+G_CreateWindow(
     const char* title,
     int width,
     int height,
@@ -42,7 +42,7 @@ window_create(
  * @returns void
  */
 void
-window_destroy(Window* window);
+G_DestroyWindow(Window* window);
 
 
 #endif

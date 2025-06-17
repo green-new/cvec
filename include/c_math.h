@@ -7,7 +7,7 @@
  * @struct vec
  * @brief Mathematical vector of 3 floating-point values.
  */
-typedef struct vec {
+typedef struct {
     /**
      * @brief X value of the vector.
      */
@@ -22,9 +22,9 @@ typedef struct vec {
      * @brief Z value of the vector.
      */
     float z;
-} vec;
+} Vec;
 
-typedef struct vec4 {
+typedef struct Vec4 {
     /**
      * @brief X value of the vector.
      */
@@ -44,14 +44,21 @@ typedef struct vec4 {
      * @brief W value of the vector.
      */
     float w;
-} vec4;
+} Vec4;
 
-typedef struct mat4 {
+typedef struct Mat4 {
     /**
      * @brief Matrix array.
      */
     float m[4][4];
-} mat4;
+} Mat4;
+
+typedef struct Mat3 {
+    /**
+     * @brief Matrix array.
+     */
+    float m[3][3];
+} Mat4;
 
 /**
  * @brief Adds two 3-dimension vectors together.
@@ -59,9 +66,9 @@ typedef struct mat4 {
  * @param b The second vector
  * @return The summed vector
  */
-vec
-vec_add(const vec* a, const vec* b) {
-    return (vec) {
+Vec
+M_AddVec(const Vec* a, const Vec* b) {
+    return (Vec) {
         .x = a->x + b->x,
         .y = a->y + b->y,
         .z = a->z + b->z
@@ -74,9 +81,9 @@ vec_add(const vec* a, const vec* b) {
  * @param b The second vector
  * @return The summed vector
  */
-vec4
-vec4_add(const vec4* a, const vec4* b) {
-    return (vec4) {
+Vec4
+M_AddVec4(const Vec4* a, const Vec4* b) {
+    return (Vec4) {
         .x = a->x + b->x,
         .y = a->y + b->y,
         .z = a->z + b->z,
@@ -90,9 +97,9 @@ vec4_add(const vec4* a, const vec4* b) {
  * @param b The second vector
  * @return The subtracted vector
  */
-vec
-vec_sub(const vec* a, const vec* b) {
-    return (vec) {
+Vec
+M_SubtractVec(const Vec* a, const Vec* b) {
+    return (Vec) {
         .x = a->x - b->x,
         .y = a->y - b->y,
         .z = a->z - b->z
@@ -105,9 +112,9 @@ vec_sub(const vec* a, const vec* b) {
  * @param b The second vector
  * @return The subtracted vector
  */
-vec4
-vec4_sub(const vec4* a, const vec4* b) {
-    return (vec4) {
+Vec4
+M_SubtractVec4(const Vec4* a, const Vec4* b) {
+    return (Vec4) {
         .x = a->x - b->x,
         .y = a->y - b->y,
         .z = a->z - b->z,
@@ -121,9 +128,9 @@ vec4_sub(const vec4* a, const vec4* b) {
  * @param b The second vector
  * @return The multiplied vector
  */
-vec
-vec_mul(const vec* a, const vec* b) {
-    return (vec) {
+Vec
+M_MultiplyVec(const Vec* a, const Vec* b) {
+    return (Vec) {
         .x = a->x * b->x,
         .y = a->y * b->y,
         .z = a->z * b->z
@@ -136,9 +143,9 @@ vec_mul(const vec* a, const vec* b) {
  * @param b The second vector
  * @return The multiplied vector
  */
-vec4
-vec4_mul(const vec4* a, const vec4* b) {
-    return (vec4) {
+Vec4
+M_MultiplyVec4(const Vec4* a, const Vec4* b) {
+    return (Vec4) {
         .x = a->x * b->x,
         .y = a->y * b->y,
         .z = a->z * b->z,
@@ -152,9 +159,9 @@ vec4_mul(const vec4* a, const vec4* b) {
  * @param s The scalar amount
  * @return The multipled vector
  */
-vec
-vec_muls(const vec* a, float s) {
-    return (vec) {
+Vec
+M_MultiplyVecByScalar(const Vec* a, float s) {
+    return (Vec) {
         .x = a->x * s,
         .y = a->y * s,
         .z = a->z * s
@@ -167,9 +174,9 @@ vec_muls(const vec* a, float s) {
  * @param s The scalar amount
  * @return The divided vector
  */
-vec
-vec_div(const vec* a, float s) {
-    return (vec) {
+Vec
+M_DivideVec(const Vec* a, float s) {
+    return (Vec) {
         .x = a->x / s,
         .y = a->y / s,
         .z = a->z / s
@@ -182,8 +189,8 @@ vec_div(const vec* a, float s) {
  * @return void
  */
 void
-vec_normalize(vec* a) {
-    float len = vec_distance(a);
+M_NormalizeVec(Vec* a) {
+    float len = M_Distance(a);
 
     a->x /= len;
     a->y /= len;
@@ -197,7 +204,7 @@ vec_normalize(vec* a) {
  * @return The dot product
  */
 float
-dot(const vec* a, const vec* b) {
+M_Dot(const Vec* a, const Vec* b) {
     return (a->x * b->x) + (a->y * b->y) + (a->z * b->z);
 }
 
@@ -207,9 +214,9 @@ dot(const vec* a, const vec* b) {
  * @param b The second vector
  * @return The cross product
  */
-vec
-cross(const vec* a, const vec* b) {
-    return (vec) {
+Vec
+M_Cross(const Vec* a, const Vec* b) {
+    return (Vec) {
         .x = (a->y * b->z) - (b->y * a->z),
         .y = (a->z * b->x) - (b->z * a->x),
         .z = (a->x * b->y) - (b->x * a->y)
@@ -222,18 +229,30 @@ cross(const vec* a, const vec* b) {
  * @return The magnitude or distance of the vector
  */
 float
-vec_distance(const vec* a) {
+M_SumOfSquares(const Vec* a) {
+    return (a->x * a->x) + (a->y * a->y) + (a->z * a->z);
+}
+
+
+/**
+ * @brief Get the magnitude of the vector
+ * @param a The first vector
+ * @return The magnitude or distance of the vector
+ */
+float
+M_Distance(const Vec* a) {
     return sqrtf((a->x * a->x) + (a->y * a->y) + (a->z * a->z));
 }
 
 /**
  * @brief Multiply two mat4 matrices together
- * @param a The first vector
+ * @param a The first mat
+ * @param b The second mat
  * @return The multipled mat4
  */
-mat4
-mat4_mul(const mat4* a, const mat4* b) {
-    mat4 res = (mat4) {
+Mat4
+M_MultiplyMat4(const Mat4* a, const Mat4* b) {
+    Mat4 res = (Mat4) {
         .m = {0}
     };
 
@@ -251,12 +270,37 @@ mat4_mul(const mat4* a, const mat4* b) {
 }
 
 /**
+ * @brief Multiply two mat3 matrices together
+ * @param a The first mat
+ * @param b The second mat
+ * @return The multipled mat3
+ */
+Mat3
+M_MultiplyMat3(const Mat3* a, const Mat3* b) {
+    Mat3 res = (Mat3) {
+        .m = {0}
+    };
+
+    // naiive implementation
+    for (unsigned char i = 0; i < 3; i++) {
+        for (unsigned char j = 0; j < 3; j++) {
+            res.m[i][j] = 0.0f;
+            for (unsigned char k = 0; k < 3; k++) {
+                res.m[i][j] += a->m[i][k] * b->m[k][j];
+            }
+        }
+    }
+
+    return res;
+}
+
+/**
  * @brief Return the identity vec4
  * @return The identity vec4
  */
-vec4
-vec4_identity(void) {
-  return (vec4) {
+Vec4
+M_Vec4Identity(void) {
+  return (Vec4) {
     .x = 0.0f,
     .y = 0.0f,
     .z = 0.0f,
@@ -268,14 +312,29 @@ vec4_identity(void) {
  * @brief Return the identity mat4
  * @return The identity mat4
  */
-mat4
-mat4_identity(void) {
-    return (mat4) {
+Mat4
+M_Mat4Identity(void) {
+    return (Mat4) {
         .m = {
             {1.0f, 0.0f, 0.0f, 0.0f},
             {0.0f, 1.0f, 0.0f, 0.0f},
             {0.0f, 0.0f, 1.0f, 0.0f},
             {0.0f, 0.0f, 0.0f, 1.0f}
+        }
+    };
+}
+
+/**
+ * @brief Return the identity mat4
+ * @return The identity mat4
+ */
+Mat3
+M_Mat3Identity(void) {
+    return (Mat3) {
+        .m = {
+            {1.0f, 0.0f, 0.0f},
+            {0.0f, 1.0f, 0.0f},
+            {0.0f, 0.0f, 1.0f}
         }
     };
 }

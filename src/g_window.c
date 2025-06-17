@@ -1,7 +1,7 @@
 #include "g_window.h"
 
 Window
-window_create(
+G_CreateWindow(
     const char* title,
     int width,
     int height,
@@ -17,6 +17,6 @@ window_create(
 }
 
 void
-window_destroy(Window* window) {
+G_DestroyWindow(Window* window) {
     SDL_DestroyWindow(window->handle);
 }
