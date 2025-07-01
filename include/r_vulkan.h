@@ -2,8 +2,8 @@
 #define VULKAN_CGAME_H_
 
 #include <vulkan/vulkan.h>
-
-#include "SDL3/SDL.h"
+#include <stddef.h>
+#include <SDL3/SDL.h>
 
 #include "g_window.h"
 #include "c_utils.h"
@@ -68,6 +68,18 @@ typedef struct {
     VkImageView* image_views;
 
     VkCommandPool pool;
+    VkCommandBuffer command_buffer;
+
+    VkFramebuffer* framebuffers;
+    Uint32 framebuffer_size;
+
+    VkRenderPass render_pass;
+
+    VKH_GraphicsPipeline* pipeline;
+
+    VkSemaphore image_available;
+    VkSemaphore render_finished;
+    VkFence inflight_fence;
 
     #ifdef NDEBUG // Debugging properties
 
@@ -75,7 +87,7 @@ typedef struct {
 
     #endif
 
-} VKH_VulkanInstance;
+} VKH_VulkanState;
 
 typedef struct {
     VkShaderModule vert_shader;
@@ -85,6 +97,15 @@ typedef struct {
     VkPipelineLayout pipeline_layout;
     VkPipeline pipeline;
 } VKH_GraphicsPipeline;
+
+/**
+ * Creates a Vulkan instance.
+ * 
+ * @param vk The vulkan instance to instantiate.
+ * @returns True or false
+ */
+int
+VKH_CreateInstance(VkInstance* vk);
 
 /**
  * Determine if the provided physical device is suitable
@@ -145,7 +166,7 @@ VKH_ChooseSwapPresentMode(const VkPresentModeKHR* present_modes, Uint32 size);
  */
 VkExtent2D 
 VKH_ChooseSwapExtent(
-    SDL_Window* window, 
+    const SDL_Window* window, 
     const VkSurfaceCapabilitiesKHR* capabilities);
 
 /**
@@ -184,20 +205,7 @@ int
 VKH_CreateRenderPass(
     VkDevice device, 
     VkFormat image_format, 
-    VkRenderPass* rendeVKH_pass);
-
-/**
- * Create the framebuffers for this applicaton.
- * @param device
- * @param framebuffers
- * @param size
- * @returns True/false
- */
-int
-VKH_CreateFramebuffers(
-    VkDevice device,
-    VkFramebuffer** framebuffers, 
-    Uint32* size);
+    VkRenderPass* render_pass);
 
 /**
  * Record to a command buffer.
@@ -251,5 +259,210 @@ VKH_DrawFrame(
  */
 int
 VKH_CheckValidationLayerSupport();
+
+/**
+ * Gets the binding description of a vertex input.
+ */
+VkVertexInputBindingDescription
+VKH_GetBindingDescription(Uint32 stride);
+
+/**
+ * Get the attribute descriptions based on offset sizes.
+ */
+void
+VKH_GetAttributeDescriptions(
+    Uint32 binding,
+    Uint32 num_attribs,
+    Uint32* offsets,
+    VkVertexInputAttributeDescription* out
+);
+
+/**
+ * Create the queue family indices for the current device.
+ * 
+ * @returns 
+ */
+int
+VKH_CreateQueue(
+    VkDevice device,
+    VkSurfaceKHR surface,
+    VKH_QueueFamilyIndices indices,
+    VkQueue* queue
+);
+
+/**
+ * Create a logical device.
+ * 
+ * @param gpu The physical device.
+ * @param indices The queue family indices.
+ * @param device The logical device location to create it at.
+ * 
+ * @returns VkResult
+ */
+VkResult
+VKH_CreateDevice(
+    VkPhysicalDevice gpu,
+    VKH_QueueFamilyIndices indices,
+    VkDevice* device
+);
+
+/**
+ * Create the physical device.
+ * 
+ * @param gpu The physical device to output to.
+ * @return True or false, if successful
+ */
+VkResult
+VKH_CreatePhysicalDevice(
+    VkInstance instance,
+    VkSurfaceKHR surface,
+    VkPhysicalDevice* gpu
+);
+
+/**
+ * Create a Vulkan KHR surface object.
+ * 
+ * @param surface The surface object to output to.
+ * @returns True or false, if passed
+ */
+int
+VKH_CreateSurface(
+    SDL_Window* handle, 
+    VkInstance instance, 
+    VkSurfaceKHR* surface
+);
+
+/**
+ * Create the Vulkan swapchain.
+ * 
+ * @param windlw_handle The handle to the SDL window.
+ * @param gpu The physical device.
+ * @param device The logical device.
+ * @param surface The KHR surface.
+ * @param indices The supported queue families.
+ * @param out_min_images The output for the minium number of images to store in
+ * the swapchain.
+ * @param out_swapchain The swapchain output.
+ * @param out_surface_format The surface_format output.
+ * @param out_surface_extent The extent output.
+ * @returns VkResult
+ */
+VkResult
+VKH_CreateSwapchain(
+    const SDL_Window* window_handle,
+    VkPhysicalDevice gpu,
+    VkDevice device,
+    VkSurfaceKHR surface,
+    VKH_QueueFamilyIndices indices,
+    VkSwapchainKHR* out_swapchain,
+    VkSurfaceFormatKHR* out_surface_format,
+    VkExtent2D* out_surface_extent
+);
+
+/**
+ * Create the images array that'll be used by the swapchain.
+ * 
+ * @param device
+ * @param swapchain
+ * @param image_size
+ * @param images
+ * @returns VkResult
+ */
+VkResult
+VKH_CreateSwapchainImages(
+    VkDevice device,
+    VkSwapchainKHR swapchain,
+    Uint32* image_size,
+    VkImage** images
+);
+
+/**
+ * Create the image views used in the presentation queue.
+ * 
+ * @param device
+ * @param image_view_count
+ * @param image_views
+ */
+VkResult
+VKH_CreateImageViews(
+    VkDevice device,
+    Uint32 image_view_count,
+    VkFormat format,
+    VkImage* images,
+    VkImageView** image_views
+);
+
+/**
+ * Create the framebuffers for the application.
+ * 
+ * @param device
+ * @param framebuffer_size Image_views array and framebuffers array should be 
+ * the same size.
+ * @param render_pass
+ * @param extent
+ * @param image_views
+ * @param framebuffers
+ */
+VkResult
+VKH_CreateFramebuffers(
+    VkDevice device,
+    Uint32 framebuffer_size,
+    VkRenderPass render_pass,
+    VkExtent2D extent,
+    VkImageView* image_views,
+    VkFramebuffer** framebuffers
+);
+
+/**
+ * Creates the command pool for the graphics queue family.
+ * 
+ * @param device
+ * @param indices
+ * @param pool
+ */
+VkResult
+VKH_CreateCommandPool(
+    VkDevice device,
+    VKH_QueueFamilyIndices indices,
+    VkCommandPool* pool
+);
+
+/**
+ * Create the command buffer used to store draw commands.
+ * 
+ * @param device
+ * @param pool
+ * @param buffer
+ */
+VkResult
+VKH_CreateCommandBuffer(
+    VkDevice device,
+    VkCommandPool pool,
+    VkCommandBuffer buffer
+);
+
+/**
+ * Creates a semaphore thats used between threaded calls to the gpu.
+ * 
+ * @param device
+ * @param semaphore
+ */
+VkResult
+VKH_CreateSemaphore(
+    VkDevice device,
+    VkSemaphore* semaphore
+);
+
+/**
+ * Creates a fence for mutlithreaded purposes between the host and the gpu.
+ * 
+ * @param device
+ * @param fence
+ */
+VkResult
+VKH_CreateFence(
+    VkDevice device,
+    VkFence* fence
+);
 
 #endif // VULKAN_CGAME_H_

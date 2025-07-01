@@ -58,7 +58,7 @@ typedef struct Mat3 {
      * @brief Matrix array.
      */
     float m[3][3];
-} Mat4;
+} Mat3;
 
 /**
  * @brief Adds two 3-dimension vectors together.

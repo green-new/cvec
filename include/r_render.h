@@ -1,10 +1,10 @@
 /**
  * File: VKH_render.h
- * Description: Contains code defintitions for the rendering part of the game.
+ * Description: Contains code definitions for the rendering part of the game.
  * Author: green
  */
-#ifndef RENDEVKH_H_
-#define RENDEVKH_H_
+#ifndef RENDER_H_
+#define RENDER_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,27 +15,54 @@
 #include "c_utils.h"
 #include "g_window.h"
 #include "r_vulkan.h"
+#include "c_math.h"
 
 #define NDEBUG 1 // are we debug mode?
 
+typedef enum {
+    R_SUCCESS,
+    R_FAILURE,
+    R_MEMORY_REFUSED,
+    R_VULKAN_ERROR
+} R_RenderExitCode;
+
 typedef struct {
-    VKH_VulkanInstance* vulkan_instance;
+    int initialized;
 
-    VkFramebuffer* framebuffers;
-    Uint32 framebuffer_size;
+    const Window* window;
 
-    VkRenderPass render_pass;
-
-    VkCommandPool command_pool;
-    VkCommandBuffer command_buffer;
-
-    VKH_GraphicsPipeline* pipeline;
-
-    VkSemaphore image_available;
-    VkSemaphore render_finished;
-    VkFence inflight_fence;
+    VKH_VulkanState vk;
 } R_RenderState;
 
+typedef struct {
+    Vec vertex;
+    Vec normal;
+    Vec4 color;
+} Vertex;
 
+/**
+ * Draws to the screen.
+ * 
+ * @param state
+ * @returns code
+ */
+int
+R_Draw(const R_RenderState* state);
 
-#endif
+/**
+ * Create the object used to house rendering properties.
+ * 
+ * @param state The render state to initialize.
+ */
+int
+R_CreateRenderState(R_RenderState* state);
+
+/**
+ * Destroy the render state and all rendering objects.
+ * 
+ * @param state The state.
+ */
+int
+R_DestroyRenderState(R_RenderState* state);
+
+#endif // RENDER_H_
