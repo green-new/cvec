@@ -2,7 +2,10 @@
 
 #include "g_game.h"
 #include "c_log.h"
+
+#define VEC_IMPL_H_
 #include "r_render.h"
+
 #include "r_vulkan.h"
 
 VkResult 
@@ -124,6 +127,10 @@ G_Init(Game* game) {
     debug_create_info.pfnUserCallback = R_CoreVulkanDebugCallback;
     debug_create_info.pUserData = NULL; // Optional
 
+    /* create render state */
+    game->render_state.window = &game->window;
+    R_CreateRenderState(&game->render_state);
+
     // need to fetch the address of the function that creates the debug
     // messenger
     if (S_CreateDebugUtilsMessengerEXT(
@@ -133,14 +140,14 @@ G_Init(Game* game) {
         &game->debug_messenger
     ) != VK_SUCCESS) {
         G_Log("ERROR", "Failed to create debug messenger.");
-        return;
+        return 0;
     }
 
-    /* create render state */
-    R_CreateRenderState(&game->render_state);
 
     /* Running is now true */
     game->running = 1;
+
+    return 1;
 }
 
 void

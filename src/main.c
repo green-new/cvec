@@ -1,4 +1,5 @@
 
+#define VEC_IMPL_H_
 #include "g_game.h"
 
 #include <stdio.h>

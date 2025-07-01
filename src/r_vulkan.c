@@ -1,3 +1,5 @@
+#include <SDL3/SDL_vulkan.h>
+
 #include "r_vulkan.h"
 #include "c_log.h"
 
@@ -20,9 +22,9 @@ const char* validation_layers[CGAME_VALIDATION_LAYERS_COUNT] = {
     const int enable_validation_layers = 0;
 #endif
 
-int
+VkResult
 VKH_CreateInstance(VkInstance* vk) {
-    int return_code = VK_SUCCESS;
+    VkResult res = VK_SUCCESS;
 
     VkApplicationInfo app_info = { 0 };
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -64,12 +66,14 @@ VKH_CreateInstance(VkInstance* vk) {
         vk_inst_create_info.enabledLayerCount = 0;
     }
 
-    if ((return_code = vkCreateInstance(&vk_inst_create_info, NULL, vk))
+    if ((res = vkCreateInstance(&vk_inst_create_info, NULL, vk))
         != VK_SUCCESS) {
         G_Log("ERROR", "Failed to create vulkan instance.");
         SDL_free(exts);
-        return return_code;
+        return res;
     }
+
+    return res;
 }
 
 VkSurfaceFormatKHR
@@ -106,7 +110,7 @@ VKH_ChooseSwapPresentMode(const VkPresentModeKHR* present_modes, Uint32 size) {
 
 VkExtent2D 
 VKH_ChooseSwapExtent(
-    const SDL_Window* window, 
+    SDL_Window* window, 
     const VkSurfaceCapabilitiesKHR* capabilities
 ) {
     if (capabilities->currentExtent.width != UINT32_MAX) {
@@ -872,14 +876,6 @@ VKH_CreateDevice(
     VkDevice* device
 ) {
     VkResult res = VK_SUCCESS;
-    VkDeviceQueueCreateInfo q_ci = { 0 };
-    q_ci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    // We know atleast the graphics queue exists for this physical device from
-    // R_IsPhysicalDeviceSuitable(...)
-    q_ci.queueFamilyIndex = indices.graphics_family;
-    q_ci.queueCount = 1;
-    float queue_prio = 1.0f; // Takes a pointer for some reason..?
-    q_ci.pQueuePriorities = &queue_prio;
 
     /* create presentation queue (for delivering images to the display) */
 
@@ -894,16 +890,15 @@ VKH_CreateDevice(
         unique_queue_families_count = 1;
         // families are the same and one can be used
         unique_queue_families = SDL_malloc(
-            unique_queue_families_count * sizeof(unique_queue_families)
+            unique_queue_families_count * sizeof(Uint32)
         );
 
-        unique_queue_families[0] = indices.graphics_family 
-            | indices.present_family;
+        unique_queue_families[0] = indices.graphics_family;
     } else {
         unique_queue_families_count = 2;
         // families are NOT the same and both must be added
         unique_queue_families = SDL_malloc(
-            unique_queue_families_count * sizeof(unique_queue_families)
+            unique_queue_families_count * sizeof(Uint32)
         );
 
         unique_queue_families[0] = indices.graphics_family;
@@ -911,7 +906,7 @@ VKH_CreateDevice(
     }
 
     q_cis = SDL_malloc(
-        unique_queue_families_count * sizeof(q_cis)
+        unique_queue_families_count * sizeof(VkDeviceQueueCreateInfo)
     );
 
     float queue_prio2 = 1.0f;
@@ -930,13 +925,11 @@ VKH_CreateDevice(
 
     VkDeviceCreateInfo ci = { 0 };
     ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    ci.pQueueCreateInfos = &q_ci;
-    ci.queueCreateInfoCount = 1;
+    ci.pQueueCreateInfos = q_cis;
+    ci.queueCreateInfoCount = unique_queue_families_count;
     ci.pEnabledFeatures = &device_feats;
     ci.enabledExtensionCount = CGAME_REQURIED_EXTENSIONS;
     ci.ppEnabledExtensionNames = required_exts;
-    ci.queueCreateInfoCount = unique_queue_families_count;
-    ci.pQueueCreateInfos = q_cis;
 
     res = vkCreateDevice(gpu, &ci, NULL, device);
 
@@ -948,6 +941,7 @@ VKH_CreateDevice(
 cleanup:
 
     SDL_free(unique_queue_families);
+    SDL_free(q_cis);
 
     return res;
 }
@@ -966,13 +960,15 @@ VKH_CreateSurface(
     )) {
         G_Log("ERROR", "Error creating SDL3 Vulkan surface.");
         G_Log("SDL ERROR", SDL_GetError());
-        return 0;
+        return 1;
     }
+
+    return 0;
 }
 
 VkResult
 VKH_CreateSwapchain(
-    const SDL_Window* window_handle,
+    SDL_Window* window_handle,
     VkPhysicalDevice gpu,
     VkDevice device,
     VkSurfaceKHR surface,
@@ -1061,12 +1057,11 @@ VKH_CreateSwapchain(
     // recreated.
     ci.oldSwapchain = VK_NULL_HANDLE;
 
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     res = vkCreateSwapchainKHR(
         device, 
         &ci, 
         NULL, 
-        &swapchain
+        out_swapchain
     );
     if (res != VK_SUCCESS) {
         G_Log("ERROR", "Error creating swapchain.");
@@ -1089,12 +1084,12 @@ VKH_CreateSwapchainImages(
     res = vkGetSwapchainImagesKHR(
         device, 
         swapchain, 
-        &image_size, 
+        image_size, 
         NULL
     );
     if (res != VK_SUCCESS) {
         G_Log("ERROR", "Could not enumerate swapchain image size.");
-        return;
+        return res;
     }
     *(images) = SDL_malloc(*image_size * sizeof(images));
     if (!(*images)) {
@@ -1104,8 +1099,8 @@ VKH_CreateSwapchainImages(
     res = vkGetSwapchainImagesKHR(
         device, 
         swapchain, 
-        &image_size, 
-        images
+        image_size, 
+        *images
     );
     if (res != VK_SUCCESS) {
         G_Log("ERROR", "Could not fetch swapchain images.");
@@ -1128,7 +1123,7 @@ VKH_CreateImageViews(
     VkImageView** image_views
 ) {
     VkResult res = VK_SUCCESS;
-    (*image_views) = SDL_malloc(image_view_count * sizeof(*image_views));
+    (*image_views) = SDL_malloc(image_view_count * sizeof(VkImageView));
 
     for (Uint32 i = 0; i < image_view_count; i++) {
         VkImageViewCreateInfo ci = { 0 };
@@ -1155,7 +1150,7 @@ VKH_CreateImageViews(
             device, 
             &ci, 
             NULL, 
-            image_views[i]
+            &(*image_views)[i]
         );
         if (res != VK_SUCCESS) {
             G_Log("ERROR", "Failed to create image views.");
@@ -1177,7 +1172,7 @@ VKH_CreateFramebuffers(
     VkFramebuffer** framebuffers
 ) {
     VkResult res = VK_SUCCESS;
-    (*framebuffers) = SDL_malloc(framebuffer_size * sizeof(*framebuffers));
+    (*framebuffers) = SDL_malloc(framebuffer_size * sizeof(VkFramebuffer));
     if (!(*framebuffers)) {
         G_Log("ERROR", "Error allocating memory for framebuffers.");
         return -1;
@@ -1201,7 +1196,7 @@ VKH_CreateFramebuffers(
             device,
             &ci,
             NULL,
-            framebuffers[i]
+            &(*framebuffers)[i]
         );
 
         if (res != VK_SUCCESS) {
@@ -1243,7 +1238,7 @@ VkResult
 VKH_CreateCommandBuffer(
     VkDevice device,
     VkCommandPool pool,
-    VkCommandBuffer buffer
+    VkCommandBuffer* buffer
 ) {
     VkResult res = VK_SUCCESS;
     VkCommandBufferAllocateInfo cb_ai = { 0 };
@@ -1256,7 +1251,7 @@ VKH_CreateCommandBuffer(
     res = vkAllocateCommandBuffers(
         device,
         &cb_ai,
-        &buffer
+        buffer
     );
 
     if (res != VK_SUCCESS) {
@@ -1279,7 +1274,7 @@ VKH_CreateSemaphore(
         device, 
         &semaphore_info, 
         NULL, 
-        &semaphore
+        semaphore
     );
 
     if (res != VK_SUCCESS) {

@@ -67,6 +67,155 @@ typedef struct Mat3 {
  * @return The summed vector
  */
 Vec
+M_AddVec(const Vec* a, const Vec* b);
+
+/**
+ * @brief Adds two 4-dimension vectors together.
+ * @param a The first vector
+ * @param b The second vector
+ * @return The summed vector
+ */
+Vec4
+M_AddVec4(const Vec4* a, const Vec4* b);
+
+/**
+ * @brief Subtracts two 3-dimension vectors together.
+ * @param a The first vector
+ * @param b The second vector
+ * @return The subtracted vector
+ */
+Vec
+M_SubtractVec(const Vec* a, const Vec* b);
+
+/**
+ * @brief Subtract two 4-dimension vectors together.
+ * @param a The first vector
+ * @param b The second vector
+ * @return The subtracted vector
+ */
+Vec4
+M_SubtractVec4(const Vec4* a, const Vec4* b);
+
+/**
+ * @brief Multiply two 3-dimension vectors together.
+ * @param a The first vector
+ * @param b The second vector
+ * @return The multiplied vector
+ */
+Vec
+M_MultiplyVec(const Vec* a, const Vec* b);
+
+/**
+ * @brief Multiply two 4-dimension vectors together.
+ * @param a The first vector
+ * @param b The second vector
+ * @return The multiplied vector
+ */
+Vec4
+M_MultiplyVec4(const Vec4* a, const Vec4* b);
+
+/**
+ * @brief Multiply a vector by the scalar amount
+ * @param a The vector to multiply
+ * @param s The scalar amount
+ * @return The multipled vector
+ */
+Vec
+M_MultiplyVecByScalar(const Vec* a, float s);
+
+/**
+ * @brief Divide a given vector by the scalar amount
+ * @param a The vector to divide
+ * @param s The scalar amount
+ * @return The divided vector
+ */
+Vec
+M_DivideVec(const Vec* a, float s);
+
+/**
+ * @brief Get the magnitude of the vector
+ * @param a The first vector
+ * @return The magnitude or distance of the vector
+ */
+float
+M_Distance(const Vec* a);
+
+/**
+ * @brief Normalize the vector in place
+ * @param a The vector to normalize, in place
+ * @return void
+ */
+void
+M_NormalizeVec(Vec* a);
+
+/**
+ * @brief Get the dot product of two vectors
+ * @param a The first vector
+ * @param b The second vector
+ * @return The dot product
+ */
+float
+M_Dot(const Vec* a, const Vec* b);
+
+/**
+ * @brief Get the cross product of two vectors
+ * @param a The first vector
+ * @param b The second vector
+ * @return The cross product
+ */
+Vec
+M_Cross(const Vec* a, const Vec* b);
+
+/**
+ * @brief Get the magnitude of the vector
+ * @param a The first vector
+ * @return The magnitude or distance of the vector
+ */
+float
+M_SumOfSquares(const Vec* a);
+
+/**
+ * @brief Multiply two mat4 matrices together
+ * @param a The first mat
+ * @param b The second mat
+ * @return The multipled mat4
+ */
+Mat4
+M_MultiplyMat4(const Mat4* a, const Mat4* b);
+
+/**
+ * @brief Multiply two mat3 matrices together
+ * @param a The first mat
+ * @param b The second mat
+ * @return The multipled mat3
+ */
+Mat3
+M_MultiplyMat3(const Mat3* a, const Mat3* b);
+
+/**
+ * @brief Return the identity vec4
+ * @return The identity vec4
+ */
+Vec4
+M_Vec4Identity(void);
+
+/**
+ * @brief Return the identity mat4
+ * @return The identity mat4
+ */
+Mat4
+M_Mat4Identity(void);
+
+/**
+ * @brief Return the identity mat4
+ * @return The identity mat4
+ */
+Mat3
+M_Mat3Identity(void);
+
+#ifndef VEC_IMPL_H_
+
+Vec
 M_AddVec(const Vec* a, const Vec* b) {
     return (Vec) {
         .x = a->x + b->x,
@@ -75,12 +224,6 @@ M_AddVec(const Vec* a, const Vec* b) {
     };
 }
 
-/**
- * @brief Adds two 4-dimension vectors together.
- * @param a The first vector
- * @param b The second vector
- * @return The summed vector
- */
 Vec4
 M_AddVec4(const Vec4* a, const Vec4* b) {
     return (Vec4) {
@@ -91,12 +234,6 @@ M_AddVec4(const Vec4* a, const Vec4* b) {
     };
 }
 
-/**
- * @brief Subtracts two 3-dimension vectors together.
- * @param a The first vector
- * @param b The second vector
- * @return The subtracted vector
- */
 Vec
 M_SubtractVec(const Vec* a, const Vec* b) {
     return (Vec) {
@@ -106,12 +243,6 @@ M_SubtractVec(const Vec* a, const Vec* b) {
     };
 }
 
-/**
- * @brief Subtract two 4-dimension vectors together.
- * @param a The first vector
- * @param b The second vector
- * @return The subtracted vector
- */
 Vec4
 M_SubtractVec4(const Vec4* a, const Vec4* b) {
     return (Vec4) {
@@ -122,12 +253,6 @@ M_SubtractVec4(const Vec4* a, const Vec4* b) {
     };
 }
 
-/**
- * @brief Multiply two 3-dimension vectors together.
- * @param a The first vector
- * @param b The second vector
- * @return The multiplied vector
- */
 Vec
 M_MultiplyVec(const Vec* a, const Vec* b) {
     return (Vec) {
@@ -137,12 +262,6 @@ M_MultiplyVec(const Vec* a, const Vec* b) {
     };
 }
 
-/**
- * @brief Multiply two 4-dimension vectors together.
- * @param a The first vector
- * @param b The second vector
- * @return The multiplied vector
- */
 Vec4
 M_MultiplyVec4(const Vec4* a, const Vec4* b) {
     return (Vec4) {
@@ -153,12 +272,6 @@ M_MultiplyVec4(const Vec4* a, const Vec4* b) {
     };
 }
 
-/**
- * @brief Multiply a vector by the scalar amount
- * @param a The vector to multiply
- * @param s The scalar amount
- * @return The multipled vector
- */
 Vec
 M_MultiplyVecByScalar(const Vec* a, float s) {
     return (Vec) {
@@ -168,12 +281,6 @@ M_MultiplyVecByScalar(const Vec* a, float s) {
     };
 }
 
-/**
- * @brief Divide a given vector by the scalar amount
- * @param a The vector to divide
- * @param s The scalar amount
- * @return The divided vector
- */
 Vec
 M_DivideVec(const Vec* a, float s) {
     return (Vec) {
@@ -183,11 +290,11 @@ M_DivideVec(const Vec* a, float s) {
     };
 }
 
-/**
- * @brief Normalize the vector in place
- * @param a The vector to normalize, in place
- * @return void
- */
+float
+M_Distance(const Vec* a) {
+    return sqrtf((a->x * a->x) + (a->y * a->y) + (a->z * a->z));
+}
+
 void
 M_NormalizeVec(Vec* a) {
     float len = M_Distance(a);
@@ -197,23 +304,11 @@ M_NormalizeVec(Vec* a) {
     a->z /= len;
 }
 
-/**
- * @brief Get the dot product of two vectors
- * @param a The first vector
- * @param b The second vector
- * @return The dot product
- */
 float
 M_Dot(const Vec* a, const Vec* b) {
     return (a->x * b->x) + (a->y * b->y) + (a->z * b->z);
 }
 
-/**
- * @brief Get the cross product of two vectors
- * @param a The first vector
- * @param b The second vector
- * @return The cross product
- */
 Vec
 M_Cross(const Vec* a, const Vec* b) {
     return (Vec) {
@@ -223,37 +318,15 @@ M_Cross(const Vec* a, const Vec* b) {
     };
 }
 
-/**
- * @brief Get the magnitude of the vector
- * @param a The first vector
- * @return The magnitude or distance of the vector
- */
 float
 M_SumOfSquares(const Vec* a) {
     return (a->x * a->x) + (a->y * a->y) + (a->z * a->z);
 }
 
-
-/**
- * @brief Get the magnitude of the vector
- * @param a The first vector
- * @return The magnitude or distance of the vector
- */
-float
-M_Distance(const Vec* a) {
-    return sqrtf((a->x * a->x) + (a->y * a->y) + (a->z * a->z));
-}
-
-/**
- * @brief Multiply two mat4 matrices together
- * @param a The first mat
- * @param b The second mat
- * @return The multipled mat4
- */
 Mat4
 M_MultiplyMat4(const Mat4* a, const Mat4* b) {
     Mat4 res = (Mat4) {
-        .m = {0}
+        .m = { { 0 } }
     };
 
     // naiive implementation
@@ -269,16 +342,10 @@ M_MultiplyMat4(const Mat4* a, const Mat4* b) {
     return res;
 }
 
-/**
- * @brief Multiply two mat3 matrices together
- * @param a The first mat
- * @param b The second mat
- * @return The multipled mat3
- */
 Mat3
 M_MultiplyMat3(const Mat3* a, const Mat3* b) {
     Mat3 res = (Mat3) {
-        .m = {0}
+        .m = { { 0 } }
     };
 
     // naiive implementation
@@ -294,10 +361,6 @@ M_MultiplyMat3(const Mat3* a, const Mat3* b) {
     return res;
 }
 
-/**
- * @brief Return the identity vec4
- * @return The identity vec4
- */
 Vec4
 M_Vec4Identity(void) {
   return (Vec4) {
@@ -308,10 +371,6 @@ M_Vec4Identity(void) {
   };
 }
 
-/**
- * @brief Return the identity mat4
- * @return The identity mat4
- */
 Mat4
 M_Mat4Identity(void) {
     return (Mat4) {
@@ -324,10 +383,6 @@ M_Mat4Identity(void) {
     };
 }
 
-/**
- * @brief Return the identity mat4
- * @return The identity mat4
- */
 Mat3
 M_Mat3Identity(void) {
     return (Mat3) {
@@ -340,3 +395,4 @@ M_Mat3Identity(void) {
 }
 
 #endif
+#endif // VEC_H_

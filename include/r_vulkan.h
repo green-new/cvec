@@ -42,6 +42,15 @@ typedef struct {
 } VKH_SwapchainSupportDetails;
 
 typedef struct {
+    VkShaderModule vert_shader;
+    VkShaderModule frag_shader;
+
+    VkDescriptorSetLayout descriptor_layout;
+    VkPipelineLayout pipeline_layout;
+    VkPipeline pipeline;
+} VKH_GraphicsPipeline;
+
+typedef struct {
     Window* window;
 
     /* High level vulkan components */
@@ -75,7 +84,7 @@ typedef struct {
 
     VkRenderPass render_pass;
 
-    VKH_GraphicsPipeline* pipeline;
+    VKH_GraphicsPipeline pipeline;
 
     VkSemaphore image_available;
     VkSemaphore render_finished;
@@ -89,22 +98,13 @@ typedef struct {
 
 } VKH_VulkanState;
 
-typedef struct {
-    VkShaderModule vert_shader;
-    VkShaderModule frag_shader;
-
-    VkDescriptorSetLayout descriptor_layout;
-    VkPipelineLayout pipeline_layout;
-    VkPipeline pipeline;
-} VKH_GraphicsPipeline;
-
 /**
  * Creates a Vulkan instance.
  * 
  * @param vk The vulkan instance to instantiate.
  * @returns True or false
  */
-int
+VkResult
 VKH_CreateInstance(VkInstance* vk);
 
 /**
@@ -160,13 +160,13 @@ VKH_ChooseSwapPresentMode(const VkPresentModeKHR* present_modes, Uint32 size);
 /**
  * Chooses the extent of the swap chain based on our capabilities and the window
  * size.
- * @param window The size of the window.
+ * @param window The window.
  * @param capabilities The capabilities of the surface.
  * @return The minimum and maximum extents of the Vulkan surface.
  */
 VkExtent2D 
 VKH_ChooseSwapExtent(
-    const SDL_Window* window, 
+    SDL_Window* window, 
     const VkSurfaceCapabilitiesKHR* capabilities);
 
 /**
@@ -349,7 +349,7 @@ VKH_CreateSurface(
  */
 VkResult
 VKH_CreateSwapchain(
-    const SDL_Window* window_handle,
+    SDL_Window* window_handle,
     VkPhysicalDevice gpu,
     VkDevice device,
     VkSurfaceKHR surface,
@@ -438,7 +438,7 @@ VkResult
 VKH_CreateCommandBuffer(
     VkDevice device,
     VkCommandPool pool,
-    VkCommandBuffer buffer
+    VkCommandBuffer* buffer
 );
 
 /**

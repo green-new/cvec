@@ -3,7 +3,9 @@
 #include <SDL3/SDL.h>
 #include <string.h>
 
+#define VEC_IMPL_H_
 #include "r_render.h"
+
 #include "c_log.h"
 #include "c_utils.h"
 
@@ -21,7 +23,7 @@ R_Draw(const R_RenderState* state) {
         state->vk.render_pass,
         state->vk.swapchain_extent,
         state->vk.present_queue,
-        state->vk.pipeline->pipeline
+        state->vk.pipeline.pipeline
     );
 }
 
@@ -56,6 +58,15 @@ R_CreateRenderState(R_RenderState* state) {
         state->vk.instance,
         state->vk.surface,
         &state->vk.gpu);
+
+    state->vk.queue_families = VKH_FindQueueFamilies(
+        state->vk.gpu, state->vk.surface);
+    
+    VKH_CreateDevice(
+        state->vk.gpu,
+        state->vk.queue_families,
+        &state->vk.device
+    );
 
     /* create queues */
     vkGetDeviceQueue(
@@ -110,8 +121,8 @@ R_CreateRenderState(R_RenderState* state) {
         state->vk.device,
         state->vk.swapchain_extent,
         state->vk.render_pass,
-        &state->vk.pipeline->pipeline_layout,
-        &state->vk.pipeline->pipeline
+        &state->vk.pipeline.pipeline_layout,
+        &state->vk.pipeline.pipeline
     );
 
     /* create framebuffers */
@@ -156,8 +167,6 @@ R_CreateRenderState(R_RenderState* state) {
         &state->vk.inflight_fence
     );
 
-cleanup:
-
     if (res == VK_SUCCESS) {
         state->initialized = 1;
     }
@@ -182,9 +191,9 @@ R_DestroyRenderState(R_RenderState* state) {
         vkDestroyFramebuffer(state->vk.device, state->vk.framebuffers[i], NULL);
     }
 
-    vkDestroyPipeline(state->vk.device, state->vk.pipeline->pipeline, NULL);
+    vkDestroyPipeline(state->vk.device, state->vk.pipeline.pipeline, NULL);
     vkDestroyPipelineLayout(
-        state->vk.device, state->vk.pipeline->pipeline_layout, NULL);
+        state->vk.device, state->vk.pipeline.pipeline_layout, NULL);
 
     vkDestroyRenderPass(state->vk.device, state->vk.render_pass, NULL);
 
@@ -198,4 +207,6 @@ R_DestroyRenderState(R_RenderState* state) {
 
     vkDestroySurfaceKHR(state->vk.instance, state->vk.surface, NULL);
     vkDestroyInstance(state->vk.instance, NULL);
+
+    return 1;
 }
