@@ -16,11 +16,15 @@ const char* validation_layers[CGAME_VALIDATION_LAYERS_COUNT] = {
     "VK_LAYER_KHRONOS_validation"
 };
 
+#define NDEBUG 1
+
 #ifdef NDEBUG
     const int enable_validation_layers = 1;
 #else
     const int enable_validation_layers = 0;
 #endif
+
+const int MAX_FRAMES_IN_FLIGHT = 2;
 
 VkResult
 VKH_CreateInstance(VkInstance* vk) {
@@ -262,7 +266,6 @@ VKH_IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
 
 VKH_QueueFamilyIndices
 VKH_FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
-
     VKH_QueueFamilyIndices indices = { 0 };
     indices.none_graphics_family = 1;
     indices.none_present_family = 1;
@@ -303,23 +306,23 @@ VKH_FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
     return indices;
 }
 
-int
+VkResult
 VKH_CreateGraphicsPipeline(
     VkDevice device,
     VkExtent2D extent,
     VkRenderPass render_pass,
-    VkPipelineLayout* out_layout,
-    VkPipeline* out_pipeline
+    VKH_GraphicsPipeline* pipeline
 ) {
+    VkResult res = VK_SUCCESS;
     buffer vert_shader = { 0 }, frag_shader = { 0 };
     
     if (!C_ReadBinaryFile("./shader/shader.vert.spv", &vert_shader)) {
         G_Log("ERROR", "Failed to read vert shader.");
-        return 0;
+        return -1;
     }
     if (!C_ReadBinaryFile("./shader/shader.frag.spv", &frag_shader)) {
         G_Log("ERROR", "Failed to read vert shader.");
-        return 0;
+        return -1;
     }
 
     VkShaderModule vert_shader_mod = VKH_CreateShaderModule(device, &vert_shader);
@@ -330,7 +333,7 @@ VKH_CreateGraphicsPipeline(
         || frag_shader_mod == VK_NULL_HANDLE
     ) {
         G_Log("ERROR", "Failed to create one of the shader modules.");
-        return 0;
+        return -1;
     }
     // vertex shader
     VkPipelineShaderStageCreateInfo vrtx_shdr_ci = { 0 };
@@ -358,10 +361,10 @@ VKH_CreateGraphicsPipeline(
     VkPipelineVertexInputStateCreateInfo vrtx_in_ci = { 0 };
     vrtx_in_ci.sType 
         = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vrtx_in_ci.vertexBindingDescriptionCount = 0;
-    vrtx_in_ci.pVertexBindingDescriptions = NULL; 
-    vrtx_in_ci.vertexAttributeDescriptionCount = 0;
-    vrtx_in_ci.pVertexAttributeDescriptions = NULL; 
+    vrtx_in_ci.vertexBindingDescriptionCount = pipeline->vert_input_bind_desc_count;
+    vrtx_in_ci.pVertexBindingDescriptions = pipeline->vert_input_bind_desc;
+    vrtx_in_ci.vertexAttributeDescriptionCount = pipeline->vert_input_attrib_desc_count;
+    vrtx_in_ci.pVertexAttributeDescriptions = pipeline->vert_input_attrib_desc;
 
     // create the input assembly for geometry
     VkPipelineInputAssemblyStateCreateInfo input_assembly = { 0 };
@@ -467,14 +470,15 @@ VKH_CreateGraphicsPipeline(
     pl_ci.pushConstantRangeCount = 0; 
     pl_ci.pPushConstantRanges = NULL;
 
-    if (vkCreatePipelineLayout(
+    res = vkCreatePipelineLayout(
         device, 
         &pl_ci, 
         NULL, 
-        out_layout
-    ) != VK_SUCCESS) {
+        &pipeline->pipeline_layout);
+
+    if (res != VK_SUCCESS) {
         G_Log("ERROR", "Failed to create pipeline layout.");
-        return 0;
+        return res;
     }
 
     VkGraphicsPipelineCreateInfo p_ci = { 0 };
@@ -490,28 +494,30 @@ VKH_CreateGraphicsPipeline(
     p_ci.pDepthStencilState = NULL; // we will do this later
     p_ci.pColorBlendState = &cb_st_ci;
     p_ci.pDynamicState = &dyn_state_create_info;
-    p_ci.layout = *out_layout;
+    p_ci.layout = pipeline->pipeline_layout;
     p_ci.renderPass = render_pass;
     p_ci.subpass = 0;
     // base pipelines are optional - allows you to create pipelines based on
     // preexisting pipelines
     p_ci.basePipelineHandle = VK_NULL_HANDLE;
-    p_ci.basePipelineIndex = -1;
+    // p_ci.basePipelineIndex = -1;
 
-    if (vkCreateGraphicsPipelines(
+    res = vkCreateGraphicsPipelines(
         device,
         VK_NULL_HANDLE,
         1,
         &p_ci,
         NULL,
-        out_pipeline
-    ) != VK_SUCCESS) {
-        return 0;
+        &pipeline->pipeline);
+
+    if (res != VK_SUCCESS) {
+        G_Log("ERROR","Failed to create graphics pipeline.");
+        return res;
     }
 
     // free shader data
-    C_FreeFileBuffer(&vert_shader);
-    C_FreeFileBuffer(&frag_shader);
+    // C_FreeFileBuffer(&vert_shader);
+    // C_FreeFileBuffer(&frag_shader);
 
     // safe to delete shader modules now
     vkDestroyShaderModule(device, vert_shader_mod, NULL);
@@ -611,11 +617,12 @@ VKH_CreateRenderPass(
 int
 VKH_RecordCommandBuffer(
     VkCommandBuffer buffer,
-    VkFramebuffer* framebuffers,
     Uint32 image_index,
     VkRenderPass render_pass,
     VkExtent2D extent,
-    VkPipeline pipeline
+    VkPipeline pipeline,
+    VKH_FramebufferList framebuffers,
+    VkBuffer vertex_buffer
 ) {
     VkCommandBufferBeginInfo buffer_begin_info = { 0 };
     buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -631,7 +638,7 @@ VKH_RecordCommandBuffer(
     VkRenderPassBeginInfo render_pass_info = { 0 };
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_info.renderPass = render_pass;
-    render_pass_info.framebuffer = framebuffers[image_index];
+    render_pass_info.framebuffer = framebuffers.data[image_index];
     render_pass_info.renderArea.offset = (VkOffset2D) { 0, 0 };
     render_pass_info.renderArea.extent = extent;
 
@@ -641,26 +648,31 @@ VKH_RecordCommandBuffer(
     render_pass_info.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    // the viewport and scissor state for the pipeline we created was made to be
-    // dynamic, so we need to pass it to the command buffer
-    VkViewport viewport = { 0 };
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float) extent.width;
-    viewport.height = (float) extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(buffer, 0, 1, &viewport);
+        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    VkRect2D scissor = { 0 };
-    scissor.offset = (VkOffset2D) { 0, 0 };
-    scissor.extent = extent;
-    vkCmdSetScissor(buffer, 0, 1, &scissor);
+        // the viewport and scissor state for the pipeline we created was 
+        // made to be dynamic, so we need to pass it to the command buffer
+        VkViewport viewport = { 0 };
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float) extent.width;
+        viewport.height = (float) extent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(buffer, 0, 1, &viewport);
 
-    // issue draw command
-    vkCmdDraw(buffer, 3, 1, 0, 0);
+        VkRect2D scissor = { 0 };
+        scissor.offset = (VkOffset2D) { 0, 0 };
+        scissor.extent = extent;
+        vkCmdSetScissor(buffer, 0, 1, &scissor);
+
+        VkBuffer vertexBuffers[] = { vertex_buffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(buffer, 0, 1, vertexBuffers, offsets);
+
+        // issue draw command
+        vkCmdDraw(buffer, 3, 1, 0, 0);
 
     vkCmdEndRenderPass(buffer);
 
@@ -671,83 +683,6 @@ VKH_RecordCommandBuffer(
 
     return 1;
 
-}
-
-int
-VKH_DrawFrame(
-    VkDevice device,
-    VkFence fence,
-    VkSwapchainKHR swapchain,
-    VkSemaphore image_available,
-    VkSemaphore render_finished,
-    VkCommandBuffer buffer,
-    VkQueue graphics_queue,
-    VkFramebuffer* framebuffers,
-    VkRenderPass render_pass,
-    VkExtent2D extent,
-    VkQueue present_queue,
-    VkPipeline pipeline
-) {
-    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &fence);
-
-    Uint32 image_index = 0;
-    vkAcquireNextImageKHR(
-        device, 
-        swapchain, 
-        UINT64_MAX, 
-        image_available, 
-        VK_NULL_HANDLE, 
-        &image_index);
-    vkResetCommandBuffer(buffer, 0);
-
-    // record command buffer
-    VKH_RecordCommandBuffer(
-        buffer,
-        framebuffers,
-        image_index,
-        render_pass,
-        extent,
-        pipeline
-    );
-
-    VkSubmitInfo submit_info = { 0 };
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore wait_semaphores[] = { image_available };
-    VkPipelineStageFlags wait_stages[] 
-        = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores = wait_semaphores;
-    submit_info.pWaitDstStageMask = wait_stages;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &buffer;
-    VkSemaphore signal_semaphores[] = { render_finished };
-    submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = signal_semaphores;
-
-    if (vkQueueSubmit(
-        graphics_queue,
-        1,
-        &submit_info,
-        fence
-    ) != VK_SUCCESS) {
-        G_Log("ERROR", "Failed to submit draw command buffer.");
-        return 0;
-    }
-
-    VkPresentInfoKHR present_info = { 0 };
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = signal_semaphores;
-    VkSwapchainKHR swapchains[] = { swapchain };
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = swapchains;
-    present_info.pImageIndices = &image_index;
-    present_info.pResults = NULL; // Optional
-    vkQueuePresentKHR(present_queue, &present_info);
-
-    return 1;
 }
 
 int 
@@ -780,13 +715,19 @@ VKH_CheckValidationLayerSupport() {
     return 1;
 }
 
-VkVertexInputBindingDescription
-VKH_GetBindingDescription(Uint32 stride) {
-    VkVertexInputBindingDescription desc = {0};
-    desc.binding = 0;
-    desc.stride = sizeof(stride);
-    desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    return desc;
+void
+VKH_GetBindingDescription(
+    Uint32* strides, 
+    Uint32 size, 
+    VkVertexInputBindingDescription* out) {
+    // assumes out is already allocated
+    // strides must be the same size
+
+    for (Uint32 i = 0; i < size; i++) {
+        out[i].binding = 0;
+        out[i].stride = strides[i];
+        out[i].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    }
 }
 
 void
@@ -794,12 +735,13 @@ VKH_GetAttributeDescriptions(
     Uint32 binding,
     Uint32 num_attribs,
     Uint32* offsets,
+    VkFormat* formats,
     VkVertexInputAttributeDescription* out
 ) {
     for (Uint32 i = 0; i < num_attribs; i++) {
         out[i].binding = binding;
         out[i].location = i;
-        out[i].format = VK_FORMAT_R32G32B32_SFLOAT;
+        out[i].format = formats[i];
         out[i].offset = offsets[i];
     }
 }
@@ -973,6 +915,7 @@ VKH_CreateSwapchain(
     VkDevice device,
     VkSurfaceKHR surface,
     VKH_QueueFamilyIndices indices,
+    VKH_ImageList* images,
     VkSwapchainKHR* out_swapchain,
     VkSurfaceFormatKHR* out_surface_format,
     VkExtent2D* out_surface_extent
@@ -1068,67 +1011,60 @@ VKH_CreateSwapchain(
         goto cleanup;
     }
 
+    /* create swapchain images */
+
+    res = vkGetSwapchainImagesKHR(
+        device, 
+        *out_swapchain, 
+        &images->size, 
+        NULL
+    );
+
+    if (res != VK_SUCCESS) {
+        G_Log("ERROR", "Could not enumerate swapchain image size.");
+        return res;
+    }
+
+    images->data = SDL_malloc(images->size * sizeof(*images->data));
+
+    if (!images->data) {
+        G_Log("ERROR", "Failed to allocate memory for swapchain images.");
+        return res;
+    }
+
+    res = vkGetSwapchainImagesKHR(
+        device, 
+        *out_swapchain, 
+        &images->size, 
+        images->data
+    );
+    if (res != VK_SUCCESS) {
+        G_Log("ERROR", "Could not fetch swapchain images.");
+        SDL_free(images->data);
+        return res;
+    }
+
 cleanup: 
 
     return res;
 }
 
 VkResult
-VKH_CreateSwapchainImages(
-    VkDevice device,
-    VkSwapchainKHR swapchain,
-    Uint32* image_size,
-    VkImage** images
-) {
-    VkResult res = VK_SUCCESS;
-    res = vkGetSwapchainImagesKHR(
-        device, 
-        swapchain, 
-        image_size, 
-        NULL
-    );
-    if (res != VK_SUCCESS) {
-        G_Log("ERROR", "Could not enumerate swapchain image size.");
-        return res;
-    }
-    *(images) = SDL_malloc(*image_size * sizeof(images));
-    if (!(*images)) {
-        G_Log("ERROR", "Failed to allocate memory for swapchain images.");
-        return res;
-    }
-    res = vkGetSwapchainImagesKHR(
-        device, 
-        swapchain, 
-        image_size, 
-        *images
-    );
-    if (res != VK_SUCCESS) {
-        G_Log("ERROR", "Could not fetch swapchain images.");
-        SDL_free(*images);
-        return res;
-    }
-
-    // cannot free in this scope - images is reused throughout the application
-    // swapchain images are destroyed when swapchain is destroyed
-    
-    return res;
-}
-
-VkResult
 VKH_CreateImageViews(
     VkDevice device,
-    Uint32 image_view_count,
     VkFormat format,
-    VkImage* images,
-    VkImageView** image_views
+    const VKH_ImageList* images,
+    VKH_ImageViewList* image_views
 ) {
     VkResult res = VK_SUCCESS;
-    (*image_views) = SDL_malloc(image_view_count * sizeof(VkImageView));
+    image_views->data = SDL_malloc(image_views->size * sizeof(
+        image_views->data[0]
+    ));
 
-    for (Uint32 i = 0; i < image_view_count; i++) {
+    for (Uint32 i = 0; i < image_views->size; i++) {
         VkImageViewCreateInfo ci = { 0 };
         ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        ci.image = images[i];
+        ci.image = images->data[i];
         // interpret images as 2d
         ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
         // swapchain format determines color format
@@ -1150,11 +1086,11 @@ VKH_CreateImageViews(
             device, 
             &ci, 
             NULL, 
-            &(*image_views)[i]
+            &image_views->data[i]
         );
         if (res != VK_SUCCESS) {
             G_Log("ERROR", "Failed to create image views.");
-            SDL_free(*image_views);
+            SDL_free(image_views->data);
             return res;
         }
     }
@@ -1165,22 +1101,23 @@ VKH_CreateImageViews(
 VkResult
 VKH_CreateFramebuffers(
     VkDevice device,
-    Uint32 framebuffer_size,
     VkRenderPass render_pass,
     VkExtent2D extent,
-    VkImageView* image_views,
-    VkFramebuffer** framebuffers
+    VKH_ImageViewList image_views,
+    VKH_FramebufferList* framebuffers
 ) {
     VkResult res = VK_SUCCESS;
-    (*framebuffers) = SDL_malloc(framebuffer_size * sizeof(VkFramebuffer));
-    if (!(*framebuffers)) {
+    framebuffers->data = SDL_malloc(framebuffers->size * sizeof(
+        framebuffers->data[0]
+    ));
+    if (!framebuffers->data) {
         G_Log("ERROR", "Error allocating memory for framebuffers.");
         return -1;
     }
-    for (Uint32 i = 0; i < framebuffer_size; i++) {
+    for (Uint32 i = 0; i < framebuffers->size; i++) {
         // array of image views
         VkImageView attachments[] = {
-            image_views[i]
+            image_views.data[i]
         };
 
         VkFramebufferCreateInfo ci = { 0 };
@@ -1196,12 +1133,12 @@ VKH_CreateFramebuffers(
             device,
             &ci,
             NULL,
-            &(*framebuffers)[i]
+            &framebuffers->data[i]
         );
 
         if (res != VK_SUCCESS) {
             G_Log("ERROR", "Error while creating framebuffers.");
-            SDL_free(*framebuffers);
+            SDL_free(framebuffers->data);
             return res;
         }
     }
@@ -1238,7 +1175,7 @@ VkResult
 VKH_CreateCommandBuffer(
     VkDevice device,
     VkCommandPool pool,
-    VkCommandBuffer* buffer
+    VKH_CommandBufferList* command_buffers
 ) {
     VkResult res = VK_SUCCESS;
     VkCommandBufferAllocateInfo cb_ai = { 0 };
@@ -1246,12 +1183,12 @@ VKH_CreateCommandBuffer(
         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cb_ai.commandPool = pool;
     cb_ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    cb_ai.commandBufferCount = 1;
+    cb_ai.commandBufferCount = command_buffers->size;
 
     res = vkAllocateCommandBuffers(
         device,
         &cb_ai,
-        buffer
+        command_buffers->data
     );
 
     if (res != VK_SUCCESS) {
@@ -1274,8 +1211,7 @@ VKH_CreateSemaphore(
         device, 
         &semaphore_info, 
         NULL, 
-        semaphore
-    );
+        semaphore);
 
     if (res != VK_SUCCESS) {
         G_Log("ERROR", "Error creating image available semaphore.");
@@ -1298,12 +1234,97 @@ VKH_CreateFence(
         device, 
         &fence_create_info, 
         NULL, 
-        fence
-    );
+        fence);
 
     if (res != VK_SUCCESS) {
         G_Log("ERROR", "Failed to create fence object.");
     }
+
+    return res;
+}
+
+int
+VKH_FindMemoryType(
+    VkPhysicalDevice gpu,
+    Uint32 type_filter,
+    VkMemoryPropertyFlags properties,
+    Uint32* flags
+) {
+    VkPhysicalDeviceMemoryProperties gpu_properties;
+    vkGetPhysicalDeviceMemoryProperties(gpu, &gpu_properties);
+
+    for (Uint32 i = 0; i < gpu_properties.memoryTypeCount; i++) {
+        Uint32 filtered = type_filter & (1 << i);
+        Uint32 props_match 
+            = (gpu_properties.memoryTypes[i].propertyFlags & properties) == properties;
+        if (filtered && props_match) {
+            (*flags) = i;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+VkResult
+VKH_CreateVertexBuffer(
+    VkDevice device, 
+    VkPhysicalDevice gpu,
+    const Vertex* vertices, 
+    Uint32 size, 
+    VkBuffer* buffer,
+    VkDeviceMemory* memory
+) {
+    VkResult res = VK_SUCCESS;
+    VkBufferCreateInfo buffer_info = { 0 };
+    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_info.size = sizeof(vertices[0]) * size;
+    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    res = vkCreateBuffer(
+        device, 
+        &buffer_info, 
+        NULL, 
+        buffer);
+        
+    if (res != VK_SUCCESS) {
+        G_Log("ERROR", "Failed to create vertex buffer.");
+    }
+
+    VkMemoryRequirements memRequirements = { 0 };
+    vkGetBufferMemoryRequirements(device, *buffer, &memRequirements);
+
+    VkMemoryAllocateInfo alloc_info = { 0 };
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = memRequirements.size;
+
+    // set memoryTypeIndex for allocation info
+    if (!VKH_FindMemoryType(
+        gpu,
+        memRequirements.memoryTypeBits, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT 
+            | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &alloc_info.memoryTypeIndex)
+    ) {
+        G_Log("ERROR", "Failed to find suitable memory type to create vertex \
+            buffer.");
+        return VK_ERROR_UNKNOWN;
+    }
+
+    res = vkAllocateMemory(device, &alloc_info, NULL, memory);
+    if (res != VK_SUCCESS) {
+        G_Log("ERROR", "Failed to allocate vertex buffer memory.");
+    }
+
+    vkBindBufferMemory(device, *buffer, *memory, 0);
+
+    /* Map memory */
+    void* data;
+    vkMapMemory(device, *memory, 0, buffer_info.size, 0, &data);
+        memcpy(data, vertices, (size_t) buffer_info.size);
+    vkUnmapMemory(device, *memory);
+    /* Unmap memory */
 
     return res;
 }

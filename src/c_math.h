@@ -22,9 +22,9 @@ typedef struct {
      * @brief Z value of the vector.
      */
     float z;
-} Vec;
+} vec_t;
 
-typedef struct Vec4 {
+typedef struct vec4_t {
     /**
      * @brief X value of the vector.
      */
@@ -44,21 +44,21 @@ typedef struct Vec4 {
      * @brief W value of the vector.
      */
     float w;
-} Vec4;
+} vec4_t;
 
-typedef struct Mat4 {
+typedef struct mat4_t {
     /**
      * @brief Matrix array.
      */
     float m[4][4];
-} Mat4;
+} mat4_t;
 
-typedef struct Mat3 {
+typedef struct mat3_t {
     /**
      * @brief Matrix array.
      */
     float m[3][3];
-} Mat3;
+} mat3_t;
 
 /**
  * @brief Adds two 3-dimension vectors together.
@@ -66,8 +66,8 @@ typedef struct Mat3 {
  * @param b The second vector
  * @return The summed vector
  */
-Vec
-M_AddVec(const Vec* a, const Vec* b);
+vec_t
+M_AddVec(const vec_t* a, const vec_t* b);
 
 /**
  * @brief Adds two 4-dimension vectors together.
@@ -75,8 +75,8 @@ M_AddVec(const Vec* a, const Vec* b);
  * @param b The second vector
  * @return The summed vector
  */
-Vec4
-M_AddVec4(const Vec4* a, const Vec4* b);
+vec4_t
+M_AddVec4(const vec4_t* a, const vec4_t* b);
 
 /**
  * @brief Subtracts two 3-dimension vectors together.
@@ -84,8 +84,8 @@ M_AddVec4(const Vec4* a, const Vec4* b);
  * @param b The second vector
  * @return The subtracted vector
  */
-Vec
-M_SubtractVec(const Vec* a, const Vec* b);
+vec_t
+M_SubtractVec(const vec_t* a, const vec_t* b);
 
 /**
  * @brief Subtract two 4-dimension vectors together.
@@ -93,8 +93,8 @@ M_SubtractVec(const Vec* a, const Vec* b);
  * @param b The second vector
  * @return The subtracted vector
  */
-Vec4
-M_SubtractVec4(const Vec4* a, const Vec4* b);
+vec4_t
+M_SubtractVec4(const vec4_t* a, const vec4_t* b);
 
 /**
  * @brief Multiply two 3-dimension vectors together.
@@ -102,8 +102,8 @@ M_SubtractVec4(const Vec4* a, const Vec4* b);
  * @param b The second vector
  * @return The multiplied vector
  */
-Vec
-M_MultiplyVec(const Vec* a, const Vec* b);
+vec_t
+M_MultiplyVec(const vec_t* a, const vec_t* b);
 
 /**
  * @brief Multiply two 4-dimension vectors together.
@@ -111,8 +111,8 @@ M_MultiplyVec(const Vec* a, const Vec* b);
  * @param b The second vector
  * @return The multiplied vector
  */
-Vec4
-M_MultiplyVec4(const Vec4* a, const Vec4* b);
+vec4_t
+M_MultiplyVec4(const vec4_t* a, const vec4_t* b);
 
 /**
  * @brief Multiply a vector by the scalar amount
@@ -120,8 +120,8 @@ M_MultiplyVec4(const Vec4* a, const Vec4* b);
  * @param s The scalar amount
  * @return The multipled vector
  */
-Vec
-M_MultiplyVecByScalar(const Vec* a, float s);
+vec_t
+M_MultiplyVecByScalar(const vec_t* a, float s);
 
 /**
  * @brief Divide a given vector by the scalar amount
@@ -129,8 +129,8 @@ M_MultiplyVecByScalar(const Vec* a, float s);
  * @param s The scalar amount
  * @return The divided vector
  */
-Vec
-M_DivideVec(const Vec* a, float s);
+vec_t
+M_DivideVec(const vec_t* a, float s);
 
 /**
  * @brief Get the magnitude of the vector
@@ -138,7 +138,7 @@ M_DivideVec(const Vec* a, float s);
  * @return The magnitude or distance of the vector
  */
 float
-M_Distance(const Vec* a);
+M_Distance(const vec_t* a);
 
 /**
  * @brief Normalize the vector in place
@@ -146,7 +146,7 @@ M_Distance(const Vec* a);
  * @return void
  */
 void
-M_NormalizeVec(Vec* a);
+M_NormalizeVec(vec_t* a);
 
 /**
  * @brief Get the dot product of two vectors
@@ -155,7 +155,7 @@ M_NormalizeVec(Vec* a);
  * @return The dot product
  */
 float
-M_Dot(const Vec* a, const Vec* b);
+M_Dot(const vec_t* a, const vec_t* b);
 
 /**
  * @brief Get the cross product of two vectors
@@ -163,8 +163,8 @@ M_Dot(const Vec* a, const Vec* b);
  * @param b The second vector
  * @return The cross product
  */
-Vec
-M_Cross(const Vec* a, const Vec* b);
+vec_t
+M_Cross(const vec_t* a, const vec_t* b);
 
 /**
  * @brief Get the magnitude of the vector
@@ -172,7 +172,7 @@ M_Cross(const Vec* a, const Vec* b);
  * @return The magnitude or distance of the vector
  */
 float
-M_SumOfSquares(const Vec* a);
+M_SumOfSquares(const vec_t* a);
 
 /**
  * @brief Multiply two mat4 matrices together
@@ -180,8 +180,8 @@ M_SumOfSquares(const Vec* a);
  * @param b The second mat
  * @return The multipled mat4
  */
-Mat4
-M_MultiplyMat4(const Mat4* a, const Mat4* b);
+mat4_t
+M_MultiplyMat4(const mat4_t* a, const mat4_t* b);
 
 /**
  * @brief Multiply two mat3 matrices together
@@ -189,44 +189,44 @@ M_MultiplyMat4(const Mat4* a, const Mat4* b);
  * @param b The second mat
  * @return The multipled mat3
  */
-Mat3
-M_MultiplyMat3(const Mat3* a, const Mat3* b);
+mat3_t
+M_MultiplyMat3(const mat3_t* a, const mat3_t* b);
 
 /**
  * @brief Return the identity vec4
  * @return The identity vec4
  */
-Vec4
+vec4_t
 M_Vec4Identity(void);
 
 /**
  * @brief Return the identity mat4
  * @return The identity mat4
  */
-Mat4
+mat4_t
 M_Mat4Identity(void);
 
 /**
  * @brief Return the identity mat4
  * @return The identity mat4
  */
-Mat3
+mat3_t
 M_Mat3Identity(void);
 
 #ifndef VEC_IMPL_H_
 
-Vec
-M_AddVec(const Vec* a, const Vec* b) {
-    return (Vec) {
+vec_t
+M_AddVec(const vec_t* a, const vec_t* b) {
+    return (vec_t) {
         .x = a->x + b->x,
         .y = a->y + b->y,
         .z = a->z + b->z
     };
 }
 
-Vec4
-M_AddVec4(const Vec4* a, const Vec4* b) {
-    return (Vec4) {
+vec4_t
+M_AddVec4(const vec4_t* a, const vec4_t* b) {
+    return (vec4_t) {
         .x = a->x + b->x,
         .y = a->y + b->y,
         .z = a->z + b->z,
@@ -234,18 +234,18 @@ M_AddVec4(const Vec4* a, const Vec4* b) {
     };
 }
 
-Vec
-M_SubtractVec(const Vec* a, const Vec* b) {
-    return (Vec) {
+vec_t
+M_SubtractVec(const vec_t* a, const vec_t* b) {
+    return (vec_t) {
         .x = a->x - b->x,
         .y = a->y - b->y,
         .z = a->z - b->z
     };
 }
 
-Vec4
-M_SubtractVec4(const Vec4* a, const Vec4* b) {
-    return (Vec4) {
+vec4_t
+M_SubtractVec4(const vec4_t* a, const vec4_t* b) {
+    return (vec4_t) {
         .x = a->x - b->x,
         .y = a->y - b->y,
         .z = a->z - b->z,
@@ -253,18 +253,18 @@ M_SubtractVec4(const Vec4* a, const Vec4* b) {
     };
 }
 
-Vec
-M_MultiplyVec(const Vec* a, const Vec* b) {
-    return (Vec) {
+vec_t
+M_MultiplyVec(const vec_t* a, const vec_t* b) {
+    return (vec_t) {
         .x = a->x * b->x,
         .y = a->y * b->y,
         .z = a->z * b->z
     };
 }
 
-Vec4
-M_MultiplyVec4(const Vec4* a, const Vec4* b) {
-    return (Vec4) {
+vec4_t
+M_MultiplyVec4(const vec4_t* a, const vec4_t* b) {
+    return (vec4_t) {
         .x = a->x * b->x,
         .y = a->y * b->y,
         .z = a->z * b->z,
@@ -272,18 +272,18 @@ M_MultiplyVec4(const Vec4* a, const Vec4* b) {
     };
 }
 
-Vec
-M_MultiplyVecByScalar(const Vec* a, float s) {
-    return (Vec) {
+vec_t
+M_MultiplyVecByScalar(const vec_t* a, float s) {
+    return (vec_t) {
         .x = a->x * s,
         .y = a->y * s,
         .z = a->z * s
     };
 }
 
-Vec
-M_DivideVec(const Vec* a, float s) {
-    return (Vec) {
+vec_t
+M_DivideVec(const vec_t* a, float s) {
+    return (vec_t) {
         .x = a->x / s,
         .y = a->y / s,
         .z = a->z / s
@@ -291,12 +291,12 @@ M_DivideVec(const Vec* a, float s) {
 }
 
 float
-M_Distance(const Vec* a) {
+M_Distance(const vec_t* a) {
     return sqrtf((a->x * a->x) + (a->y * a->y) + (a->z * a->z));
 }
 
 void
-M_NormalizeVec(Vec* a) {
+M_NormalizeVec(vec_t* a) {
     float len = M_Distance(a);
 
     a->x /= len;
@@ -305,13 +305,13 @@ M_NormalizeVec(Vec* a) {
 }
 
 float
-M_Dot(const Vec* a, const Vec* b) {
+M_Dot(const vec_t* a, const vec_t* b) {
     return (a->x * b->x) + (a->y * b->y) + (a->z * b->z);
 }
 
-Vec
-M_Cross(const Vec* a, const Vec* b) {
-    return (Vec) {
+vec_t
+M_Cross(const vec_t* a, const vec_t* b) {
+    return (vec_t) {
         .x = (a->y * b->z) - (b->y * a->z),
         .y = (a->z * b->x) - (b->z * a->x),
         .z = (a->x * b->y) - (b->x * a->y)
@@ -319,13 +319,13 @@ M_Cross(const Vec* a, const Vec* b) {
 }
 
 float
-M_SumOfSquares(const Vec* a) {
+M_SumOfSquares(const vec_t* a) {
     return (a->x * a->x) + (a->y * a->y) + (a->z * a->z);
 }
 
-Mat4
-M_MultiplyMat4(const Mat4* a, const Mat4* b) {
-    Mat4 res = (Mat4) {
+mat4_t
+M_MultiplyMat4(const mat4_t* a, const mat4_t* b) {
+    mat4_t res = (mat4_t) {
         .m = { { 0 } }
     };
 
@@ -342,9 +342,9 @@ M_MultiplyMat4(const Mat4* a, const Mat4* b) {
     return res;
 }
 
-Mat3
-M_MultiplyMat3(const Mat3* a, const Mat3* b) {
-    Mat3 res = (Mat3) {
+mat3_t
+M_MultiplyMat3(const mat3_t* a, const mat3_t* b) {
+    mat3_t res = (mat3_t) {
         .m = { { 0 } }
     };
 
@@ -361,9 +361,9 @@ M_MultiplyMat3(const Mat3* a, const Mat3* b) {
     return res;
 }
 
-Vec4
+vec4_t
 M_Vec4Identity(void) {
-  return (Vec4) {
+  return (vec4_t) {
     .x = 0.0f,
     .y = 0.0f,
     .z = 0.0f,
@@ -371,9 +371,9 @@ M_Vec4Identity(void) {
   };
 }
 
-Mat4
+mat4_t
 M_Mat4Identity(void) {
-    return (Mat4) {
+    return (mat4_t) {
         .m = {
             {1.0f, 0.0f, 0.0f, 0.0f},
             {0.0f, 1.0f, 0.0f, 0.0f},
@@ -383,9 +383,9 @@ M_Mat4Identity(void) {
     };
 }
 
-Mat3
+mat3_t
 M_Mat3Identity(void) {
-    return (Mat3) {
+    return (mat3_t) {
         .m = {
             {1.0f, 0.0f, 0.0f},
             {0.0f, 1.0f, 0.0f},

@@ -8,14 +8,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "vulkan/vulkan.h"
-#include "SDL3/SDL.h"
+#include <vulkan/vulkan.h>
+#include <SDL3/SDL.h>
 
 #include "c_utils.h"
 #include "g_window.h"
-#include "r_vulkan.h"
 #include "c_math.h"
+#include "r_vulkan.h"
 
 #define NDEBUG 1 // are we debug mode?
 
@@ -24,21 +23,20 @@ typedef enum {
     R_FAILURE,
     R_MEMORY_REFUSED,
     R_VULKAN_ERROR
-} R_RenderExitCode;
+} R_RenderExitCode; 
 
-typedef struct {
+/* Contains our current render state. */
+typedef struct R_RenderState {
+
     int initialized;
 
     const Window* window;
 
     VKH_VulkanState vk;
-} R_RenderState;
 
-typedef struct {
-    Vec vertex;
-    Vec normal;
-    Vec4 color;
-} Vertex;
+    Uint32 current_frame;
+
+} R_RenderState;
 
 /**
  * Draws to the screen.
@@ -47,7 +45,7 @@ typedef struct {
  * @returns code
  */
 int
-R_Draw(const R_RenderState* state);
+R_Draw(R_RenderState* state);
 
 /**
  * Create the object used to house rendering properties.

@@ -3,7 +3,7 @@ CC := gcc
 
 # compiler flags
 # -fanalyzer - shows deep analysis of code
-CFLAGS := -g -Wall -std=c99 -pedantic -O0
+CFLAGS := -g -Wall -std=c99 -pedantic -O0 -fanalyzer
 
 CPPFLAGS := -Ideps/SDL3/include -Iinclude
 LDLIBS := -lvulkan 

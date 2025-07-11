@@ -88,7 +88,7 @@ S_DestroyDebugUtilsMessengerEXT(
 }
 
 int
-G_Init(Game* game) {
+G_Init(game_t* game) {
 
     G_Log("INFO", "Initializing game.");
 
@@ -143,7 +143,6 @@ G_Init(Game* game) {
         return 0;
     }
 
-
     /* Running is now true */
     game->running = 1;
 
@@ -151,7 +150,7 @@ G_Init(Game* game) {
 }
 
 void
-G_Start(Game* game) {
+G_Start(game_t* game) {
     while (game->running) {
         /* Update the game clock */
         clock_update(&game->clock);
@@ -163,15 +162,17 @@ G_Start(Game* game) {
         SDL_Event evt;
         while (SDL_PollEvent(&evt)) {
             if (evt.type == SDL_EVENT_QUIT) {
-                G_Stop(game);
+                game->running = 0;
             }
         }
     }
 }
 
 void 
-G_Stop(Game* game) {
+G_Stop(game_t* game) {
     G_Log("INFO", "Stopping game.");
+
+    vkDeviceWaitIdle(game->render_state.vk.device);
 
     if (enable_validation_layers) {
         S_DestroyDebugUtilsMessengerEXT(
@@ -179,8 +180,5 @@ G_Stop(Game* game) {
     }
 
     R_DestroyRenderState(&game->render_state);
-
     G_DestroyWindow(&game->window);
-
-    game->running = 0;
 }

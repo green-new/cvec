@@ -7,10 +7,14 @@
 
 #include "g_window.h"
 #include "c_utils.h"
+#include "r_vertex.h"
 
 #define CGAME_REQURIED_EXTENSIONS 1
 #define CGAME_DYNAMIC_STATES_COUNT 2
 #define CGAME_VALIDATION_LAYERS_COUNT 1
+
+#define CGAME_MAX_SEMAPHORES 32
+#define CGAME_MAX_FENCES 32
 
 /* Determines if we should use validation layers */
 extern const int enable_validation_layers;
@@ -25,13 +29,16 @@ extern const VkDynamicState dynamic_states[CGAME_DYNAMIC_STATES_COUNT];
 extern const char* validation_layers[CGAME_VALIDATION_LAYERS_COUNT];
 
 typedef struct {
+
     int none_graphics_family;
     int none_present_family;
     Uint32 graphics_family;
     Uint32 present_family;
+
 } VKH_QueueFamilyIndices;
 
 typedef struct {
+
     VkSurfaceCapabilitiesKHR capabilities;
 
     VkSurfaceFormatKHR* formats;
@@ -39,18 +46,105 @@ typedef struct {
 
     VkPresentModeKHR* present_modes;
     Uint32 present_modes_count;
+
 } VKH_SwapchainSupportDetails;
 
 typedef struct {
+
     VkShaderModule vert_shader;
     VkShaderModule frag_shader;
+
+    VkVertexInputBindingDescription* vert_input_bind_desc;
+    Uint32 vert_input_bind_desc_count;
+    VkVertexInputAttributeDescription* vert_input_attrib_desc;
+    Uint32 vert_input_attrib_desc_count;
 
     VkDescriptorSetLayout descriptor_layout;
     VkPipelineLayout pipeline_layout;
     VkPipeline pipeline;
+
 } VKH_GraphicsPipeline;
 
+/**
+ * Specifies a list of semaphores.
+ */
 typedef struct {
+
+    /* List of semaphores. */
+    VkSemaphore data[CGAME_MAX_SEMAPHORES];
+
+    /* Number of elements. */
+    Uint32 size;
+
+} VKH_SemaphoreList;
+
+/**
+ * Specifies a list of fences.
+ */
+typedef struct {
+
+    /* List of fences. */
+    VkFence data[CGAME_MAX_FENCES];
+
+    /* Number of fences. */
+    Uint32 size;
+
+} VKH_FenceList;
+
+/**
+ * Specifies a list of frame buffers.
+ */
+typedef struct {
+
+    /* Framebuffer list. */
+    VkFramebuffer* data;
+
+    /* Number of framebuffers being used. */
+    Uint32 size;
+
+} VKH_FramebufferList;
+
+/**
+ * Specifies a list of image views.
+ */
+typedef struct {
+
+    /* Image view list. */
+    VkImageView* data;
+
+    /* Number of image views being used. */
+    Uint32 size;
+
+} VKH_ImageViewList;
+
+/**
+ * Specifies a list of images.
+ */
+typedef struct {
+     
+    /* Image list. */
+    VkImage* data;
+
+    /* Number of image views being used. */
+    Uint32 size;
+
+} VKH_ImageList;
+
+/**
+ * Specifies a list of command buffers.
+ */
+typedef struct {
+
+    /* Command buffer list. */
+    VkCommandBuffer* data;
+
+    /* Number of command buffers in the list. */
+    Uint32 size;
+
+} VKH_CommandBufferList;
+
+
+typedef struct VKH_VulkanState {
     Window* window;
 
     /* High level vulkan components */
@@ -70,25 +164,27 @@ typedef struct {
     VkSurfaceFormatKHR swapchain_format;
     VkExtent2D swapchain_extent;
 
+    /* vertex buffer */
+    VkBuffer vertex_buffer;
+    VkDeviceMemory vertex_buffer_memory;
+
     /* Image stuff */
 
-    VkImage* images;
-    Uint32 image_size;
-    VkImageView* image_views;
+    VKH_ImageList images;
+    VKH_ImageViewList image_views;
 
     VkCommandPool pool;
-    VkCommandBuffer command_buffer;
-
-    VkFramebuffer* framebuffers;
-    Uint32 framebuffer_size;
 
     VkRenderPass render_pass;
 
     VKH_GraphicsPipeline pipeline;
+    VKH_CommandBufferList command_buffers;
+    VKH_FramebufferList framebuffers;
+    VKH_SemaphoreList image_available;
+    VKH_SemaphoreList render_finished;
+    VKH_FenceList inflight_fence;
 
-    VkSemaphore image_available;
-    VkSemaphore render_finished;
-    VkFence inflight_fence;
+    Uint32 framebuffer_resized;
 
     #ifdef NDEBUG // Debugging properties
 
@@ -173,18 +269,16 @@ VKH_ChooseSwapExtent(
  * Create the graphics pipeline.
  * @param device The logical device.
  * @param extent The extent of the Vulkan surface.
- * @param rendeVKH_pass The render pass object.
- * @param out_layout Output parameter - The new pipeline layout.
+ * @param render_pass The render pass object.
  * @param pipeline Output parameter - the new pipeline.
  * @returns True/false
  */
-int
+VkResult
 VKH_CreateGraphicsPipeline(
     VkDevice device, 
     VkExtent2D extent, 
-    VkRenderPass rendeVKH_pass,
-    VkPipelineLayout* out_layout,
-    VkPipeline* pipeline);
+    VkRenderPass render_pass,
+    VKH_GraphicsPipeline* pipeline);
 
 /**
  * Creates the shader module.
@@ -210,46 +304,22 @@ VKH_CreateRenderPass(
 /**
  * Record to a command buffer.
  * @param buffer
- * @param image_index Index of the current swap chain image.
- * @param rendeVKH_pass
+ * @param image_index
+ * @param render_pass
  * @param extent
+ * @param pipeline
+ * @param framebuffers
  * @returns True/false
  */
 int
 VKH_RecordCommandBuffer(
     VkCommandBuffer buffer,
-    VkFramebuffer* framebuffers,
     Uint32 image_index,
-    VkRenderPass rendeVKH_pass,
+    VkRenderPass render_pass,
     VkExtent2D extent,
-    VkPipeline pipeline
-);
-
-/**
- * Draws a frame.
- * @param device
- * @param fence
- * @param swapchain
- * @param image_available
- * @param buffer
- * @param pipeline
- * @returns true/false
- */
-int
-VKH_DrawFrame(
-    VkDevice device,
-    VkFence fence,
-    VkSwapchainKHR swapchain,
-    VkSemaphore image_available,
-    VkSemaphore rendeVKH_finished,
-    VkCommandBuffer buffer,
-    VkQueue graphics_queue,
-    VkFramebuffer* framebuffers,
-    VkRenderPass rendeVKH_pass,
-    VkExtent2D extent,
-    VkQueue present_queue,
-    VkPipeline pipeline
-);
+    VkPipeline pipeline,
+    VKH_FramebufferList framebuffers,
+    VkBuffer vertex_buffer);
 
 /**
  * Determine vulkan's validation layer support based on our validation_layers
@@ -262,9 +332,14 @@ VKH_CheckValidationLayerSupport();
 
 /**
  * Gets the binding description of a vertex input.
+ * 
+ * @param strides The strides for each binding description.
+ * @param size The number of binding descriptions to create, as well as the
+ * number of strides.
+ * @param out
  */
-VkVertexInputBindingDescription
-VKH_GetBindingDescription(Uint32 stride);
+void
+VKH_GetBindingDescription(Uint32* strides, Uint32 size, VkVertexInputBindingDescription* out);
 
 /**
  * Get the attribute descriptions based on offset sizes.
@@ -274,6 +349,7 @@ VKH_GetAttributeDescriptions(
     Uint32 binding,
     Uint32 num_attribs,
     Uint32* offsets,
+    VkFormat* formats,
     VkVertexInputAttributeDescription* out
 );
 
@@ -354,26 +430,10 @@ VKH_CreateSwapchain(
     VkDevice device,
     VkSurfaceKHR surface,
     VKH_QueueFamilyIndices indices,
+    VKH_ImageList* images,
     VkSwapchainKHR* out_swapchain,
     VkSurfaceFormatKHR* out_surface_format,
     VkExtent2D* out_surface_extent
-);
-
-/**
- * Create the images array that'll be used by the swapchain.
- * 
- * @param device
- * @param swapchain
- * @param image_size
- * @param images
- * @returns VkResult
- */
-VkResult
-VKH_CreateSwapchainImages(
-    VkDevice device,
-    VkSwapchainKHR swapchain,
-    Uint32* image_size,
-    VkImage** images
 );
 
 /**
@@ -386,18 +446,15 @@ VKH_CreateSwapchainImages(
 VkResult
 VKH_CreateImageViews(
     VkDevice device,
-    Uint32 image_view_count,
     VkFormat format,
-    VkImage* images,
-    VkImageView** image_views
+    const VKH_ImageList* images,
+    VKH_ImageViewList* image_views
 );
 
 /**
  * Create the framebuffers for the application.
  * 
  * @param device
- * @param framebuffer_size Image_views array and framebuffers array should be 
- * the same size.
  * @param render_pass
  * @param extent
  * @param image_views
@@ -406,11 +463,10 @@ VKH_CreateImageViews(
 VkResult
 VKH_CreateFramebuffers(
     VkDevice device,
-    Uint32 framebuffer_size,
     VkRenderPass render_pass,
     VkExtent2D extent,
-    VkImageView* image_views,
-    VkFramebuffer** framebuffers
+    VKH_ImageViewList image_views,
+    VKH_FramebufferList* framebuffers
 );
 
 /**
@@ -438,7 +494,7 @@ VkResult
 VKH_CreateCommandBuffer(
     VkDevice device,
     VkCommandPool pool,
-    VkCommandBuffer* buffer
+    VKH_CommandBufferList* command_buffers
 );
 
 /**
@@ -464,5 +520,36 @@ VKH_CreateFence(
     VkDevice device,
     VkFence* fence
 );
+
+/**
+ * Finds the memory type of the physical device.
+ */
+int
+VKH_FindMemoryType(
+    VkPhysicalDevice gpu,
+    Uint32 type_filter,
+    VkMemoryPropertyFlags properties,
+    Uint32* out
+);
+
+/**
+ * Creates a vertex buffer from the specified vertex array.
+ * 
+ * @param device
+ * @param vertices
+ * @param size
+ * @param buffer
+ * @param memory
+ * 
+ * @return `VkResult`
+ */
+VkResult
+VKH_CreateVertexBuffer(
+    VkDevice device, 
+    VkPhysicalDevice gpu,
+    const Vertex* vertices, 
+    Uint32 size, 
+    VkBuffer* buffer,
+    VkDeviceMemory* memory);
 
 #endif // VULKAN_CGAME_H_

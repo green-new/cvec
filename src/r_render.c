@@ -9,23 +9,8 @@
 #include "c_log.h"
 #include "c_utils.h"
 
-int
-R_Draw(const R_RenderState* state) {
-    return VKH_DrawFrame(
-        state->vk.device,
-        state->vk.inflight_fence,
-        state->vk.swapchain,
-        state->vk.image_available,
-        state->vk.render_finished,
-        state->vk.command_buffer,
-        state->vk.graphics_queue,
-        state->vk.framebuffers,
-        state->vk.render_pass,
-        state->vk.swapchain_extent,
-        state->vk.present_queue,
-        state->vk.pipeline.pipeline
-    );
-}
+// defined in r_vulkan.c
+extern const int MAX_FRAMES_IN_FLIGHT;
 
 int
 R_CreateRenderState(R_RenderState* state) {
@@ -35,6 +20,9 @@ R_CreateRenderState(R_RenderState* state) {
 
     /* get validation layers */
     int validation_layers_supported = VKH_CheckValidationLayerSupport();
+    if (enable_validation_layers) {
+        G_Log("INFO", "Validation layers enabled.");
+    }
     if (enable_validation_layers && !validation_layers_supported) {
         G_Log("ERROR", "Validation layers were enabled but not supported.");
         return 0;
@@ -80,32 +68,27 @@ R_CreateRenderState(R_RenderState* state) {
         0, 
         &state->vk.present_queue);
 
-    /* create the swapchain */
+    /* create the swapchain + images */
     VKH_CreateSwapchain(
         state->window->handle,
         state->vk.gpu,
         state->vk.device,
         state->vk.surface,
         state->vk.queue_families,
+        &state->vk.images,
         &state->vk.swapchain,
         &state->vk.swapchain_format,
         &state->vk.swapchain_extent
     );
 
-    /* create images */
-    VKH_CreateSwapchainImages(
-        state->vk.device,
-        state->vk.swapchain,
-        &state->vk.image_size,
-        &state->vk.images
-    );
+    // NOTE: Image Views should always the same size as the Images array.
+    state->vk.image_views.size = state->vk.images.size;
 
     /* create image views */
     VKH_CreateImageViews(
         state->vk.device,
-        state->vk.image_size,
         state->vk.swapchain_format.format,
-        state->vk.images,
+        &state->vk.images,
         &state->vk.image_views
     );
 
@@ -116,56 +99,111 @@ R_CreateRenderState(R_RenderState* state) {
         &state->vk.render_pass
     );
 
+    /* set binding description - allocated */
+    state->vk.pipeline.vert_input_bind_desc_count = 1;
+    state->vk.pipeline.vert_input_bind_desc = SDL_malloc(
+        state->vk.pipeline.vert_input_bind_desc_count 
+            * sizeof(*state->vk.pipeline.vert_input_bind_desc)
+    );
+    VKH_GetBindingDescription(
+        (Uint32[]) { sizeof(Vertex) }, // stack allocated
+        1,
+        state->vk.pipeline.vert_input_bind_desc
+    );
+
+    /* set attribute description - allocated */
+    state->vk.pipeline.vert_input_attrib_desc_count = 2;
+    state->vk.pipeline.vert_input_attrib_desc = SDL_malloc(
+        state->vk.pipeline.vert_input_attrib_desc_count
+            * sizeof(*state->vk.pipeline.vert_input_attrib_desc)
+    );
+    VKH_GetAttributeDescriptions(
+        0,
+        state->vk.pipeline.vert_input_attrib_desc_count,
+        (Uint32[2]) { offsetof(Vertex, position), offsetof(Vertex, color) },
+        (VkFormat[2]) { VK_FORMAT_R32G32_SFLOAT, VK_FORMAT_R32G32B32_SFLOAT  },
+        state->vk.pipeline.vert_input_attrib_desc);
+
     /* create graphics pipeline */
     VKH_CreateGraphicsPipeline(
         state->vk.device,
         state->vk.swapchain_extent,
         state->vk.render_pass,
-        &state->vk.pipeline.pipeline_layout,
-        &state->vk.pipeline.pipeline
-    );
+        &state->vk.pipeline);
+
+    // NOTE: Framebuffers should always the same size as the Images array.
+    state->vk.framebuffers.size = state->vk.images.size;
 
     /* create framebuffers */
     VKH_CreateFramebuffers(
         state->vk.device,
-        state->vk.image_size,
         state->vk.render_pass,
         state->vk.swapchain_extent,
         state->vk.image_views,
-        &state->vk.framebuffers
-    );
+        &state->vk.framebuffers);
 
     /* Create the command pool */
     VKH_CreateCommandPool(
         state->vk.device,
         state->vk.queue_families,
-        &state->vk.pool
-    );
+        &state->vk.pool);
 
-    /* Create command buffer */
+    /* create vertex buffer */
+    // Vertex vertices[3] = {
+    //     { .position = { .x = 0.0f, .y = -0.5f }, .color = { .x = 1.0f, .y = 0.0f, .z = 0.0f }},
+    //     { .position = { .x = 0.5f, .y = 0.5f }, .color = { .x = 0.0f, .y = 1.0f, .z = 0.0f }},
+    //     { .position = { .x = 0.5f, .y = 0.5f }, .color = { .x = 0.0f, .y = 0.0f, .z = 1.0f }}
+    // };
+    Vertex vertices[3] = {
+        { .position = { 0.0f, -0.5f }, .color = { 1.0f, 0.0f, 0.0f }},
+        { .position = { 0.5f, 0.5f }, .color = { 0.0f, 1.0f, 0.0f }},
+        { .position = { -0.5f, 0.5f }, .color = { 0.0f, 0.0f, 1.0f }}
+    };
+    VKH_CreateVertexBuffer(state->vk.device,
+        state->vk.gpu,
+        vertices,
+        3,
+        &state->vk.vertex_buffer,
+        &state->vk.vertex_buffer_memory);
+
+    // Command buffer size must be equivalent to the MAX FRAMES IN FLIGHT.
+    state->vk.command_buffers.size = MAX_FRAMES_IN_FLIGHT;
+    state->vk.command_buffers.data = SDL_malloc(MAX_FRAMES_IN_FLIGHT * sizeof(
+        *state->vk.command_buffers.data
+    ));
+
+    /* Create command buffers */
     VKH_CreateCommandBuffer(
         state->vk.device,
         state->vk.pool,
-        &state->vk.command_buffer
-    );
+        &state->vk.command_buffers);
 
-    /* Create semaphore for images */
-    VKH_CreateSemaphore(
-        state->vk.device,
-        &state->vk.image_available
-    );
+    /**
+     * Create synchronization objects
+     * Each object has a length of MAX_FRAMES_IN_FLIGHT
+     * Sync objects are stack allocated
+     */
+    state->vk.image_available.size = MAX_FRAMES_IN_FLIGHT;
+    state->vk.render_finished.size = MAX_FRAMES_IN_FLIGHT;
+    state->vk.inflight_fence.size = MAX_FRAMES_IN_FLIGHT;
 
-    /* Create semaphore for finished rendering */
-    VKH_CreateSemaphore(
-        state->vk.device,
-        &state->vk.render_finished
-    );
+    for (Uint32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-    /* create fence for the host */
-    VKH_CreateFence(
-        state->vk.device,
-        &state->vk.inflight_fence
-    );
+        /* Create semaphore for images */
+        VKH_CreateSemaphore(
+            state->vk.device,
+            &state->vk.image_available.data[i]);
+
+        /* Create semaphore for finished rendering */
+        VKH_CreateSemaphore(
+            state->vk.device,
+            &state->vk.render_finished.data[i]);
+
+        /* create fence for the host */
+        VKH_CreateFence(
+            state->vk.device,
+            &state->vk.inflight_fence.data[i]);
+    }
 
     if (res == VK_SUCCESS) {
         state->initialized = 1;
@@ -178,35 +216,177 @@ int
 R_DestroyRenderState(R_RenderState* state) {
     G_Log("RENDER INFO", "Destroying render state.");
 
-    // wait for device to finish stuff
-    vkDeviceWaitIdle(state->vk.device);
-
-    vkDestroySemaphore(state->vk.device, state->vk.image_available, NULL);
-    vkDestroySemaphore(state->vk.device, state->vk.render_finished, NULL);
-    vkDestroyFence(state->vk.device, state->vk.inflight_fence, NULL);
-
-    vkDestroyCommandPool(state->vk.device, state->vk.pool, NULL);
-
-    for (Uint32 i = 0; i < state->vk.framebuffer_size; i++) {
-        vkDestroyFramebuffer(state->vk.device, state->vk.framebuffers[i], NULL);
+    // cleanup swapchain stuff
+    for (Uint32 i = 0; i < state->vk.framebuffers.size; i++) {
+        VkFramebuffer framebuffer = state->vk.framebuffers.data[i];
+        vkDestroyFramebuffer(
+            state->vk.device, 
+            framebuffer, 
+            NULL);
     }
+    for (Uint32 i = 0; i < state->vk.image_views.size; i++) {
+        VkImageView view = state->vk.image_views.data[i];
+        vkDestroyImageView(state->vk.device, view, NULL);
+    }
+    vkDestroySwapchainKHR(state->vk.device, state->vk.swapchain, NULL);
 
     vkDestroyPipeline(state->vk.device, state->vk.pipeline.pipeline, NULL);
     vkDestroyPipelineLayout(
         state->vk.device, state->vk.pipeline.pipeline_layout, NULL);
-
     vkDestroyRenderPass(state->vk.device, state->vk.render_pass, NULL);
 
-    for (Uint32 i = 0; i < state->vk.image_size; i++) {
-        VkImageView view = state->vk.image_views[i];
-        vkDestroyImageView(state->vk.device, view, NULL);
-    } 
+    vkDestroyBuffer(state->vk.device, state->vk.vertex_buffer, NULL);
+    vkFreeMemory(state->vk.device, state->vk.vertex_buffer_memory, NULL);
 
-    vkDestroySwapchainKHR(state->vk.device, state->vk.swapchain, NULL);
+    /* destroy image available semaphores */
+    for (Uint32 i = 0; i < state->vk.image_available.size; i++) {
+        VkSemaphore semaphore = state->vk.image_available.data[i];
+        vkDestroySemaphore(state->vk.device, semaphore, NULL);
+    }
+    /* destroy render finished semaphores */
+    for (Uint32 i = 0; i < state->vk.render_finished.size; i++) {
+        VkSemaphore semaphore = state->vk.render_finished.data[i];
+        vkDestroySemaphore(state->vk.device, semaphore, NULL);
+    }
+    /* destroy fence semaphores */
+    for (Uint32 i = 0; i < state->vk.inflight_fence.size; i++) {
+        VkFence fence = state->vk.inflight_fence.data[i];
+        vkDestroyFence(state->vk.device, fence, NULL);
+    }
+    
+    vkDestroyCommandPool(state->vk.device, state->vk.pool, NULL);
+
     vkDestroyDevice(state->vk.device, NULL);
-
+    
     vkDestroySurfaceKHR(state->vk.instance, state->vk.surface, NULL);
     vkDestroyInstance(state->vk.instance, NULL);
+
+    return 1;
+}
+
+int
+R_Draw(
+    R_RenderState* state
+) {
+    // wait for fences
+    vkWaitForFences(
+        state->vk.device, 
+        1, 
+        &state->vk.inflight_fence.data[state->current_frame], 
+        VK_TRUE, 
+        UINT64_MAX);
+
+    Uint32 image_index = 0;
+    VkResult result = vkAcquireNextImageKHR(
+        state->vk.device,
+        state->vk.swapchain,
+        UINT64_MAX,
+        state->vk.image_available.data[state->current_frame],
+        VK_NULL_HANDLE,
+        &image_index);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        // recreate the swapchain
+        VKH_CreateSwapchain(
+            state->window->handle,
+            state->vk.gpu,
+            state->vk.device,
+            state->vk.surface,
+            state->vk.queue_families,
+            &state->vk.images,
+            &state->vk.swapchain,
+            &state->vk.swapchain_format,
+            &state->vk.swapchain_extent
+        );
+        return 0;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        G_Log("ERROR", "Failed to acquire swapchain image.");
+        return result;
+    }
+
+    vkResetFences(
+        state->vk.device, 
+        1, 
+        &state->vk.inflight_fence.data[state->current_frame]);
+
+    vkResetCommandBuffer(
+        state->vk.command_buffers.data[state->current_frame], 
+        0);
+
+    // record command buffer
+    VKH_RecordCommandBuffer(
+        state->vk.command_buffers.data[state->current_frame],
+        image_index,
+        state->vk.render_pass,
+        state->vk.swapchain_extent,
+        state->vk.pipeline.pipeline,
+        state->vk.framebuffers,
+        state->vk.vertex_buffer
+    );
+
+    // wait semaphores
+
+    VkSubmitInfo submit_info = { 0 };
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore wait_semaphores[] 
+        = { state->vk.image_available.data[state->current_frame] };
+    VkPipelineStageFlags wait_stages[] 
+        = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores = wait_semaphores;
+    submit_info.pWaitDstStageMask = wait_stages;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers 
+        = &state->vk.command_buffers.data[state->current_frame];
+    VkSemaphore signal_semaphores[] 
+        = { state->vk.render_finished.data[state->current_frame] };
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = signal_semaphores;
+
+    if (vkQueueSubmit(
+        state->vk.graphics_queue,
+        1,
+        &submit_info,
+        state->vk.inflight_fence.data[state->current_frame]
+    ) != VK_SUCCESS) {
+        G_Log("ERROR", "Failed to submit draw command buffer.");
+        return 0;
+    }
+
+    VkPresentInfoKHR present_info = { 0 };
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = signal_semaphores;
+    VkSwapchainKHR swapchains[] = { state->vk.swapchain };
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swapchains;
+    present_info.pImageIndices = &image_index;
+    present_info.pResults = NULL; // Optional
+
+    result = vkQueuePresentKHR(state->vk.present_queue, &present_info);
+
+    if (
+        result == VK_ERROR_OUT_OF_DATE_KHR 
+        || result == VK_SUBOPTIMAL_KHR || state->vk.framebuffer_resized
+    ) {
+        state->vk.framebuffer_resized = 0;
+
+        // recreate the swapchain
+        VKH_CreateSwapchain(
+            state->window->handle,
+            state->vk.gpu,
+            state->vk.device,
+            state->vk.surface,
+            state->vk.queue_families,
+            &state->vk.images,
+            &state->vk.swapchain,
+            &state->vk.swapchain_format,
+            &state->vk.swapchain_extent
+        );
+    }
+
+    state->current_frame = (state->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
     return 1;
 }

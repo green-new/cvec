@@ -7,18 +7,20 @@
 #define GAME_H_
 
 #define SDL_VULKAN_CORE_H_
-#include "SDL3/SDL.h"
-#include "SDL3/SDL_vulkan.h"
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan.h>
 
-#include "vulkan/vulkan.h"
 #include "g_window.h"
 #include "g_clock.h"
+
+#define VEC_IMPL_H_
 #include "r_render.h"
 
 /**
  * Structure containing high-level game information
  */
-typedef struct Game {
+typedef struct game_t {
 
     Window window;
 
@@ -29,27 +31,28 @@ typedef struct Game {
     R_RenderState render_state;
 
     VkDebugUtilsMessengerEXT debug_messenger;
-} Game;
+    
+} game_t;
 
 /**
  * Initializes the game.
  * @param game The game object.
  */
 int
-G_Init(Game* game);
+G_Init(game_t* game);
 
 /**
  * Starts the game.
  * @param game The game object.
  */
 void
-G_Start(Game* game);
+G_Start(game_t* game);
 
 /**
  * Stops the game.
  * @param game The game object.
  */
 void
-G_Stop(Game* game);
+G_Stop(game_t* game);
 
 #endif // GAME_H_

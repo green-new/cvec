@@ -70,7 +70,9 @@
         "sdl_vulkan.h": "c",
         "stdlib.h": "c",
         "c_math.h": "c",
-        "c_utils.h": "c"
+        "c_utils.h": "c",
+        "r_vulkan.h": "c",
+        "r_render.h": "c"
     },
     "makefile.launchConfigurations": [
         {

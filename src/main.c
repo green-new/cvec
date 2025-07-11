@@ -7,7 +7,7 @@
 int main(int argc, char** argv) {
     printf("Hello world\n");
 
-    Game game = { 0 };
+    game_t game = { 0 };
 
     G_Init(&game);
     G_Start(&game);
