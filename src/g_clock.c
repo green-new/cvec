@@ -1,7 +1,7 @@
 #include "g_clock.h"
 
 void
-clock_update(Clock* clock) {
+G_ClockUpdate(Clock* clock) {
     clock->prevTime = clock->currTime;
     clock->currTime = SDL_GetTicks();
     clock->deltaTime = clock->currTime - clock->prevTime;
@@ -30,7 +30,7 @@ clock_update(Clock* clock) {
 }
 
 void
-clock_reset(Clock* clock) {
+G_ClockReset(Clock* clock) {
     // reset all values in the clock
     clock->currTime = 0.0;
     clock->prevTime = 0.0;

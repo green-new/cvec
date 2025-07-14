@@ -143,6 +143,25 @@ typedef struct {
 
 } VKH_CommandBufferList;
 
+/**
+ * Specifies a list of uniform buffers.
+ */
+typedef struct {
+
+    /** VkBuffer list. */
+    VkBuffer* buffer_list;
+
+    /** VkDeviceMemory list. */
+    VkDeviceMemory* memory_list;
+
+    /** Mapped memory list. */
+    void* mapped;
+
+    /** Number of elements in each list. */
+    Uint32 size;   
+
+} VKH_UniformBufferList;
+
 
 typedef struct VKH_VulkanState {
     Window* window;
@@ -168,6 +187,10 @@ typedef struct VKH_VulkanState {
     VkBuffer vertex_buffer;
     VkDeviceMemory vertex_buffer_memory;
 
+    /* index buffer */
+    VkBuffer index_buffer;
+    VkDeviceMemory index_buffer_memory;
+
     /* Image stuff */
 
     VKH_ImageList images;
@@ -183,6 +206,7 @@ typedef struct VKH_VulkanState {
     VKH_SemaphoreList image_available;
     VKH_SemaphoreList render_finished;
     VKH_FenceList inflight_fence;
+    VKH_UniformBufferList ubo;
 
     Uint32 framebuffer_resized;
 
@@ -313,13 +337,15 @@ VKH_CreateRenderPass(
  */
 int
 VKH_RecordCommandBuffer(
-    VkCommandBuffer buffer,
-    Uint32 image_index,
-    VkRenderPass render_pass,
-    VkExtent2D extent,
-    VkPipeline pipeline,
-    VKH_FramebufferList framebuffers,
-    VkBuffer vertex_buffer);
+  VkCommandBuffer buffer,
+  Uint32 image_index,
+  VkRenderPass render_pass,
+  VkExtent2D extent,
+  VkPipeline pipeline,
+  VKH_FramebufferList framebuffers,
+  VkBuffer vertex_buffer,
+  VkBuffer index_buffer,
+  Uint32 num_indices);
 
 /**
  * Determine vulkan's validation layer support based on our validation_layers
@@ -529,8 +555,28 @@ VKH_FindMemoryType(
     VkPhysicalDevice gpu,
     Uint32 type_filter,
     VkMemoryPropertyFlags properties,
-    Uint32* out
-);
+    Uint32* out);
+
+/**
+ * Creates a generic buffer.
+ * 
+ * @param device
+ * @param gpu
+ * @param size
+ * @param usage_flags
+ * @param prop_flags
+ * @param buffer - output
+ * @param memory - output
+ */
+VkResult
+VKH_CreateBuffer(
+  VkDevice device,
+  VkPhysicalDevice gpu,
+  VkDeviceSize size,
+  VkBufferUsageFlags usage_flags,
+  VkMemoryPropertyFlags prop_flags,
+  VkBuffer* buffer,
+  VkDeviceMemory* memory);
 
 /**
  * Creates a vertex buffer from the specified vertex array.
@@ -538,6 +584,8 @@ VKH_FindMemoryType(
  * @param device
  * @param vertices
  * @param size
+ * @param graphics_queue
+ * @param cmd_pool
  * @param buffer
  * @param memory
  * 
@@ -545,11 +593,67 @@ VKH_FindMemoryType(
  */
 VkResult
 VKH_CreateVertexBuffer(
-    VkDevice device, 
-    VkPhysicalDevice gpu,
-    const Vertex* vertices, 
-    Uint32 size, 
-    VkBuffer* buffer,
-    VkDeviceMemory* memory);
+  VkDevice device, 
+  VkPhysicalDevice gpu,
+  const Vertex* vertices, 
+  VkDeviceSize size, 
+  VkQueue graphics_queue,
+  VkCommandPool cmd_pool,
+  VkBuffer* buffer,
+  VkDeviceMemory* memory);
+
+/**
+ * Creates a index buffer.
+ * 
+ * @param device
+ * @param gpu
+ * @param indices The list of indices
+ * @param size The total size of the index array
+ * @param graphics_queue The queue to submit to for transfer
+ * @param cmd_pool
+ * @param buffer Out - index buffer
+ * @param memory Out - index buffer memory
+ * 
+ * @return `VkResult`
+ */
+VkResult
+VKH_CreateIndexBuffer(
+  VkDevice device, 
+  VkPhysicalDevice gpu,
+  const Uint32* indices, 
+  VkDeviceSize size, 
+  VkQueue graphics_queue,
+  VkCommandPool cmd_pool,
+  VkBuffer* buffer,
+  VkDeviceMemory* memory);
+
+/**
+ * Copy a buffer from src to dest.
+ */
+VkResult
+VKH_CopyBuffer(
+  VkDevice device,
+  VkBuffer src,
+  VkBuffer dest,
+  VkDeviceSize size,
+  VkQueue graphics_queue,
+  VkCommandPool cmd_pool);
+
+/**
+ * Create the descripter set layout.
+ */
+VkResult
+VKH_CreateDescriptorSetLayout(
+  VkDevice device,
+  VkDescriptorSetLayout* descriptor_layout);
+
+/**
+ * Create the uniform buffers.
+ */
+VkResult
+VKH_CreateUniformBuffers(
+  VkDevice device,
+  VkPhysicalDevice gpu,
+  VKH_UniformBufferList* ubo);
 
 #endif // VULKAN_CGAME_H_

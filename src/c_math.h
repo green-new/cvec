@@ -394,5 +394,7 @@ M_Mat3Identity(void) {
     };
 }
 
+mat4_t
+
 #endif
 #endif // VEC_H_

@@ -153,7 +153,7 @@ void
 G_Start(game_t* game) {
     while (game->running) {
         /* Update the game clock */
-        clock_update(&game->clock);
+        G_ClockUpdate(&game->clock);
 
         /* Render frame */
         R_Draw(&game->render_state);

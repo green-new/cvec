@@ -8,6 +8,7 @@
 
 #include "c_log.h"
 #include "c_utils.h"
+#include "g_clock.h"
 
 // defined in r_vulkan.c
 extern const int MAX_FRAMES_IN_FLIGHT;
@@ -123,6 +124,11 @@ R_CreateRenderState(R_RenderState* state) {
         (Uint32[2]) { offsetof(Vertex, position), offsetof(Vertex, color) },
         (VkFormat[2]) { VK_FORMAT_R32G32_SFLOAT, VK_FORMAT_R32G32B32_SFLOAT  },
         state->vk.pipeline.vert_input_attrib_desc);
+    
+    /* create descripter set layout before creating the pipeline */
+    VKH_CreateDescriptorSetLayout(
+        state->vk.device, 
+        &state->vk.pipeline.descriptor_layout);
 
     /* create graphics pipeline */
     VKH_CreateGraphicsPipeline(
@@ -154,23 +160,50 @@ R_CreateRenderState(R_RenderState* state) {
     //     { .position = { .x = 0.5f, .y = 0.5f }, .color = { .x = 0.0f, .y = 1.0f, .z = 0.0f }},
     //     { .position = { .x = 0.5f, .y = 0.5f }, .color = { .x = 0.0f, .y = 0.0f, .z = 1.0f }}
     // };
-    Vertex vertices[3] = {
-        { .position = { 0.0f, -0.5f }, .color = { 1.0f, 0.0f, 0.0f }},
-        { .position = { 0.5f, 0.5f }, .color = { 0.0f, 1.0f, 0.0f }},
-        { .position = { -0.5f, 0.5f }, .color = { 0.0f, 0.0f, 1.0f }}
+    Vertex vertices[4] = {
+        { .position = { -0.5f, -0.5f }, .color = { 1.0f, 0.0f, 0.0f }},
+        { .position = { 0.5f, -0.5f }, .color = { 0.0f, 1.0f, 0.0f }},
+        { .position = { 0.5f, 0.5f }, .color = { 0.0f, 0.0f, 1.0f }},
+        { .position = { -0.5f, 0.5f }, .color = { 1.0f, 1.0f, 1.0f }}
     };
+    Uint32 indices[6] = { 0, 1, 2, 2, 3, 0 };
+    VKH_CreateIndexBuffer(state->vk.device,
+        state->vk.gpu,
+        indices,
+        6 * sizeof(*indices),
+        state->vk.graphics_queue,
+        state->vk.pool,
+        &state->vk.index_buffer,
+        &state->vk.index_buffer_memory);
     VKH_CreateVertexBuffer(state->vk.device,
         state->vk.gpu,
         vertices,
-        3,
+        4 * sizeof(*vertices),
+        state->vk.graphics_queue,
+        state->vk.pool,
         &state->vk.vertex_buffer,
         &state->vk.vertex_buffer_memory);
+    
+    // create uniform buffers after creating the vertex and index buffers
+    state->vk.ubo.size = MAX_FRAMES_IN_FLIGHT;
+    state->vk.ubo.buffer_list = SDL_calloc(
+        state->vk.ubo.size,
+        sizeof(*state->vk.ubo.buffer_list));
+    state->vk.ubo.mapped = SDL_calloc(
+        state->vk.ubo.size,
+        sizeof(*state->vk.ubo.mapped));
+    state->vk.ubo.memory_list = SDL_calloc(
+        state->vk.ubo.size,
+        sizeof(*state->vk.ubo.memory_list));
+    VKH_CreateUniformBuffers(
+        state->vk.device,
+        state->vk.gpu,
+        &state->vk.ubo);
 
     // Command buffer size must be equivalent to the MAX FRAMES IN FLIGHT.
     state->vk.command_buffers.size = MAX_FRAMES_IN_FLIGHT;
-    state->vk.command_buffers.data = SDL_malloc(MAX_FRAMES_IN_FLIGHT * sizeof(
-        *state->vk.command_buffers.data
-    ));
+    state->vk.command_buffers.data = SDL_calloc(state->vk.command_buffers.size,
+        sizeof(*state->vk.command_buffers.data));
 
     /* Create command buffers */
     VKH_CreateCommandBuffer(
@@ -235,6 +268,22 @@ R_DestroyRenderState(R_RenderState* state) {
         state->vk.device, state->vk.pipeline.pipeline_layout, NULL);
     vkDestroyRenderPass(state->vk.device, state->vk.render_pass, NULL);
 
+    // destroy uniform buffer list before the descriptor set layout
+    for (Uint32 i = 0; i < state->vk.ubo.size; i++) {
+        vkDestroyBuffer(state->vk.device, state->vk.ubo.buffer_list[i], NULL);
+        vkFreeMemory(state->vk.device, state->vk.ubo.memory_list[i], NULL);
+    }
+
+    // cleanup descriptor set layout after swapchain
+    vkDestroyDescriptorSetLayout(
+        state->vk.device,
+        state->vk.pipeline.descriptor_layout,
+        NULL);
+
+    // cleanup vertex buffer/index buffer after destroying the swapchain stuff
+    vkDestroyBuffer(state->vk.device, state->vk.index_buffer, NULL);
+    vkFreeMemory(state->vk.device, state->vk.index_buffer_memory, NULL);
+
     vkDestroyBuffer(state->vk.device, state->vk.vertex_buffer, NULL);
     vkFreeMemory(state->vk.device, state->vk.vertex_buffer_memory, NULL);
 
@@ -264,10 +313,13 @@ R_DestroyRenderState(R_RenderState* state) {
     return 1;
 }
 
+void
+R_UpdateUniformBuffer(R_RenderState* state, const Clock* clockState) {
+    
+}
+
 int
-R_Draw(
-    R_RenderState* state
-) {
+R_Draw(R_RenderState* state) {
     // wait for fences
     vkWaitForFences(
         state->vk.device, 
@@ -321,8 +373,13 @@ R_Draw(
         state->vk.swapchain_extent,
         state->vk.pipeline.pipeline,
         state->vk.framebuffers,
-        state->vk.vertex_buffer
+        state->vk.vertex_buffer,
+        state->vk.index_buffer,
+        6
     );
+
+    // update uniform buffer
+    R_UpdateUniformBuffer(state, clock);
 
     // wait semaphores
 

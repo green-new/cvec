@@ -59,13 +59,13 @@ typedef struct {
  * @param clock The clock object.
  */
 void
-clock_update(Clock* clock);
+G_ClockUpdate(Clock* clock);
 
 /**
  * Reset the clock object.
  */
 void
-clock_reset(Clock* clock);
+G_ClockReset(Clock* clock);
 
 
 #endif
