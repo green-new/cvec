@@ -1566,7 +1566,7 @@ VKH_CreateDescriptorSetLayout(
   res = vkCreateDescriptorSetLayout(device,
     &ci,
     NULL,
-    &descriptor_layout);
+    descriptor_layout);
 
   if (res != VK_SUCCESS) {
     G_Log("ERROR", "Failed to create descriptor layout.");
@@ -1600,6 +1600,81 @@ VKH_CreateUniformBuffers(
       G_Log("ERROR", "Could not map memory while creating uniform buffers.");
       return res;
     }
+  }
+
+  return res;
+}
+
+VkResult
+VKH_CreateDescriptorPool(
+  VkDevice device,
+  const VkDescriptorSetLayout* layouts,
+  VkDescriptorSet* sets,
+  VkDescriptorPool* pool) {
+
+  VkResult res = VK_SUCCESS;
+  VkDescriptorPoolSize poolSize = { 0 };
+  poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  poolSize.descriptorCount = (Uint32) MAX_FRAMES_IN_FLIGHT;
+
+  VkDescriptorPoolCreateInfo poolInfo = { 0 };
+  poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  poolInfo.poolSizeCount = 1;
+  poolInfo.pPoolSizes = &poolSize;
+  poolInfo.maxSets = (Uint32) MAX_FRAMES_IN_FLIGHT;
+
+  res = vkCreateDescriptorPool(device, &poolInfo, NULL, pool);
+  if (res != VK_SUCCESS) {
+    G_Log("ERROR", "Failed to create descriptor pool.");
+    return res;
+  }
+
+  return res;
+}
+
+VkResult
+VKH_CreateDescriptorSets(VkDevice device,
+  VkDescriptorSetLayout layout,
+  VkDescriptorPool pool,
+  const VKH_UniformBufferList uniformBuffers,
+  VkDescriptorSet* sets) {
+
+  VkResult res = VK_SUCCESS;
+  
+  // create list of layouts (we only use one descriptor set layout)
+  VkDescriptorSetLayout* layouts = NULL;
+  layouts = SDL_calloc(MAX_FRAMES_IN_FLIGHT, sizeof(*layouts));
+
+  // create descriptor set
+  VkDescriptorSetAllocateInfo allocInfo = { 0 };
+  allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  allocInfo.descriptorPool = pool;
+  allocInfo.descriptorSetCount = (Uint32) MAX_FRAMES_IN_FLIGHT;
+  allocInfo.pSetLayouts = layouts;
+
+  res = vkAllocateDescriptorSets(device, &allocInfo, sets);
+  if (res != VK_SUCCESS) {
+    G_Log("ERROR", "Failed to allocate descriptor sets.");
+    return res;
+  }
+
+  // create descriptor sets
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    VkDescriptorBufferInfo bufferInfo = { 0 };
+    bufferInfo.buffer = uniformBuffers.buffer_list[i];
+    bufferInfo.offset = 0;
+    bufferInfo.range = sizeof(uniformBuffers.buffer_list[i]);
+
+    VkWriteDescriptorSet descriptorWrite = { 0 };
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = sets[i];
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pBufferInfo = &bufferInfo;
+
+    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, NULL);
   }
 
   return res;

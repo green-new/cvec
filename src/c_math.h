@@ -3,6 +3,14 @@
 
 #include <math.h>
 
+#define M_2_PI 6.28318530717958647692
+#define M_1_PI 0.31830988618379067153803535746773
+#define M_PI 3.14159265358979323846
+#define M_PI_2 1.57079632679489661923
+#define M_PI_4 0.785398163397448309615
+#define M_ROOT_2 1.4142135623730950488016887242097
+#define M_ROOT_1_2 0.70710678118654752440084436210485
+
 /**
  * @struct vec
  * @brief Mathematical vector of 3 floating-point values.
@@ -23,6 +31,18 @@ typedef struct {
      */
     float z;
 } vec_t;
+
+typedef struct Orientation {
+
+  vec_t eye;
+  vec_t up;
+  vec_t right;
+
+} Orientation;
+
+typedef enum eProjectionType {
+    PROJECTION_TYPE_PERSPECTIVE
+} ProjectionType;
 
 typedef struct vec4_t {
     /**
@@ -213,6 +233,37 @@ M_Mat4Identity(void);
 mat3_t
 M_Mat3Identity(void);
 
+void
+Vec4_MultiplyMatrix(vec4_t* vec, const mat4_t* mat);
+
+mat4_t
+Mat4_TranslationMatrix(float x, float y, float z);
+
+mat4_t
+Mat4_RotationMatrix(vec_t axis, float theta);
+
+void
+Mat4_Rotate(mat4_t* mat, vec_t axis, float theta);
+
+void
+Vec4_Translate(vec4_t* vec, float x, float y, float z, float w);
+
+void
+Vec_Translate(vec_t* vec, float x, float y, float z);
+
+void
+Vec4_Scale(vec4_t* self, float scale);
+
+mat4_t
+Mat4_PerspectiveProjection(
+    float fov, 
+    float aspect, 
+    float zNear, 
+    float zFar);
+
+mat4_t
+Mat4_LookAt(Orientation orient);
+
 #ifndef VEC_IMPL_H_
 
 vec_t
@@ -394,7 +445,150 @@ M_Mat3Identity(void) {
     };
 }
 
-mat4_t
+void
+Vec4_MultiplyMatrix(vec4_t* vec, const mat4_t* mat) {
+    vec->x = (mat->m[0][0] * vec->x) 
+        + (mat->m[0][1] * vec->x) 
+        + (mat->m[0][2] * vec->x)
+        + (mat->m[0][3] * vec->x);
+    vec->y = (mat->m[1][0] * vec->y) 
+        + (mat->m[1][1] * vec->y) 
+        + (mat->m[1][2] * vec->y)
+        + (mat->m[1][3] * vec->y);
+    vec->z = (mat->m[2][0] * vec->z) 
+        + (mat->m[2][1] * vec->z) 
+        + (mat->m[2][2] * vec->z)
+        + (mat->m[2][3] * vec->z);
+    vec->w = (mat->m[3][0] * vec->w) 
+        + (mat->m[3][1] * vec->w) 
+        + (mat->m[3][2] * vec->w)
+        + (mat->m[3][3] * vec->w);
+}
 
-#endif
+mat4_t
+Mat4_TranslationMatrix(float x, float y, float z) {
+    mat4_t i = M_Mat4Identity();
+    i.m[0][3] = x;
+    i.m[1][3] = y;
+    i.m[2][3] = z;
+    return i;
+}
+
+void
+Mat4_Rotate(mat4_t* mat, vec_t axis, float theta) {
+    mat4_t rotation = Mat4_RotationMatrix(axis, theta);
+    mat4_t res = M_MultiplyMat4(&rotation, mat);
+    *mat = res;
+}
+
+mat4_t
+Mat4_RotationMatrix(vec_t axis, float theta) {
+    mat4_t res = { 0 };
+    float costheta = cosf(theta);
+    float sintheta = sinf(theta); 
+    // Row 0
+    res.m[0][0] = (axis.x * axis.x) * (1.0f - costheta) + costheta;
+    res.m[0][1] = (axis.x * axis.y) * (1.0f - costheta) - (axis.z * sintheta);
+    res.m[0][2] = (axis.x * axis.z) * (1.0f - costheta) + (axis.y * sintheta);
+    res.m[0][3] = 0.0f;
+
+    // Row 1
+    res.m[1][0] = (axis.x * axis.y) * (1.0f - costheta) + (axis.z * sintheta);
+    res.m[1][1] = (axis.y * axis.y) * (1.0f - costheta) + costheta;
+    res.m[1][2] = (axis.y * axis.z) * (1.0f - costheta) - (axis.x * sintheta);
+    res.m[1][3] = 0.0f;
+
+    // Row 2
+    res.m[2][0] = (axis.x * axis.z) * (1.0f - costheta) - (axis.y * sintheta);
+    res.m[2][1] = (axis.y * axis.z) * (1.0f - costheta) + (axis.x * sintheta);
+    res.m[2][2] = (axis.z * axis.z) * (1.0f - costheta) + costheta;
+    res.m[2][3] = 0.0f;
+
+    // Row 3
+    res.m[3][0] = 0.0f;
+    res.m[3][1] = 0.0f;
+    res.m[3][2] = 0.0f;
+    res.m[3][3] = 1.0f;
+    return res;
+}
+
+void
+Vec4_Translate(vec4_t* vec, float x, float y, float z, float w) {
+    vec->x += x;
+    vec->y += y;
+    vec->z += z;
+    vec->w += w;
+}
+
+void
+Vec_Translate(vec_t* vec, float x, float y, float z) {
+    vec->x += x;
+    vec->y += y;
+    vec->z += z;
+}
+
+void
+Vec4_Scale(vec4_t* self, float scale) {
+    self->x = self->x * scale;
+    self->y = self->y * scale;
+    self->z = self->z * scale;
+    self->w = self->w;
+}
+
+mat4_t
+Mat4_PerspectiveProjection(
+    float fov, 
+    float aspect, 
+    float zNear, 
+    float zFar) {
+
+    mat4_t res = { 0 };
+    res.m[0][0] = 1.0f / (aspect * tanf(fov / 2.0f));
+    res.m[0][1] = 0.0f;
+    res.m[0][2] = 0.0f;
+    res.m[0][3] = 0.0f;
+
+    res.m[1][0] = 0.0f;
+    res.m[1][1] = 1.0f / tanf(fov / 2.0f);
+    res.m[1][2] = 0.0f;
+    res.m[1][3] = 0.0f;
+
+    res.m[2][0] = 0.0f;
+    res.m[2][1] = 0.0f;
+    res.m[2][2] = -((zFar + zNear) / (zFar - zNear));
+    res.m[2][3] = -((2.0f * zFar * zNear) / (zFar - zNear));
+
+    res.m[3][0] = 0.0f;
+    res.m[3][1] = 0.0f;
+    res.m[3][2] = -1.0f;
+    res.m[3][3] = 0.0f;
+    return res;
+}
+
+mat4_t
+Mat4_LookAt(Orientation orient) {
+    mat4_t res = { 0 };
+    res.m[0][0] = orient.right.x;
+    res.m[0][1] = orient.right.y;
+    res.m[0][2] = orient.right.z;
+    res.m[0][3] = 0.0f;
+
+    res.m[1][0] = orient.up.x;
+    res.m[1][1] = orient.up.y;
+    res.m[1][2] = orient.up.z;
+    res.m[1][3] = 0.0f;
+
+    res.m[2][0] = orient.eye.x;
+    res.m[2][1] = orient.eye.y;
+    res.m[2][2] = orient.eye.z;
+    res.m[2][3] = 0.0f;
+
+    res.m[3][0] = 0.0f;
+    res.m[3][1] = 0.0f;
+    res.m[3][2] = 0.0f;
+    res.m[3][3] = 1.0f;
+    return res; 
+}
+
+#endif // VEC_IMPL_H_
 #endif // VEC_H_

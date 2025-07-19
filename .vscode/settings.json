@@ -72,7 +72,8 @@
         "c_math.h": "c",
         "c_utils.h": "c",
         "r_vulkan.h": "c",
-        "r_render.h": "c"
+        "r_render.h": "c",
+        "math.h": "c"
     },
     "makefile.launchConfigurations": [
         {

@@ -156,7 +156,7 @@ G_Start(game_t* game) {
         G_ClockUpdate(&game->clock);
 
         /* Render frame */
-        R_Draw(&game->render_state);
+        R_Draw(&game->render_state, &game->clock);
 
         /** Poll events */
         SDL_Event evt;

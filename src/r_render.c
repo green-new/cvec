@@ -3,12 +3,16 @@
 #include <SDL3/SDL.h>
 #include <string.h>
 
-#define VEC_IMPL_H_
+#define _USE_MATH_DEFINES
+#include <math.h>
+
+
 #include "r_render.h"
 
 #include "c_log.h"
 #include "c_utils.h"
 #include "g_clock.h"
+#include "r_matrix.h"
 
 // defined in r_vulkan.c
 extern const int MAX_FRAMES_IN_FLIGHT;
@@ -191,7 +195,7 @@ R_CreateRenderState(R_RenderState* state) {
         sizeof(*state->vk.ubo.buffer_list));
     state->vk.ubo.mapped = SDL_calloc(
         state->vk.ubo.size,
-        sizeof(*state->vk.ubo.mapped));
+        sizeof(char));
     state->vk.ubo.memory_list = SDL_calloc(
         state->vk.ubo.size,
         sizeof(*state->vk.ubo.memory_list));
@@ -315,11 +319,36 @@ R_DestroyRenderState(R_RenderState* state) {
 
 void
 R_UpdateUniformBuffer(R_RenderState* state, const Clock* clockState) {
-    
+    const double time = clockState->currTime;
+    R_UniformBufferObject ubo = { 0 };
+
+    ubo.model = M_Mat4Identity();
+    Mat4_Rotate(&ubo.model, (vec_t) { .x = 0.0f, .y = 0.0f, .z = 1.0f }, time * M_PI_2);
+
+    ubo.view = Mat4_LookAt(
+        (Orientation) { 
+            .eye = { .x = 0.0f, .y = 0.0f, .z = 0.0f },
+            .right = { .x = 0.0f, .y = 1.0f, .z = 0.0f },
+            .up = { .x = 0.0f, .y = 0.0f, .z = 1.0f }
+        }
+    );
+
+    static const float fov = 60.0f;
+    float aspect = state->vk.swapchain_extent.width 
+        / (float) state->vk.swapchain_extent.height;
+    static float zNear = 0.01f;
+    static float zFar = 100.0f;
+    ubo.proj = Mat4_PerspectiveProjection(
+        fov,
+        aspect,
+        zNear,
+        zFar);
+
+    SDL_memcpy(&state->vk.ubo.mapped[state->current_frame], &ubo, sizeof(ubo));
 }
 
 int
-R_Draw(R_RenderState* state) {
+R_Draw(R_RenderState* state, const Clock* clockState) {
     // wait for fences
     vkWaitForFences(
         state->vk.device, 
@@ -379,7 +408,7 @@ R_Draw(R_RenderState* state) {
     );
 
     // update uniform buffer
-    R_UpdateUniformBuffer(state, clock);
+    R_UpdateUniformBuffer(state, clockState);
 
     // wait semaphores
 

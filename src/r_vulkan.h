@@ -155,7 +155,7 @@ typedef struct {
     VkDeviceMemory* memory_list;
 
     /** Mapped memory list. */
-    void* mapped;
+    void** mapped;
 
     /** Number of elements in each list. */
     Uint32 size;   
@@ -655,5 +655,25 @@ VKH_CreateUniformBuffers(
   VkDevice device,
   VkPhysicalDevice gpu,
   VKH_UniformBufferList* ubo);
+
+/**
+ * Create descriptor pool.
+ */
+VkResult
+VKH_CreateDescriptorPool(
+    VkDevice device,
+    const VkDescriptorSetLayout* layouts,
+    VkDescriptorSet* sets,
+    VkDescriptorPool* pool
+);
+
+/**
+ * Create descriptor sets.
+ */
+VkResult
+VKH_CreateDescriptorSets(VkDevice device,
+  VkDescriptorSetLayout layout,
+  VkDescriptorPool pool,
+  VkDescriptorSet* sets);
 
 #endif // VULKAN_CGAME_H_

@@ -15,6 +15,7 @@
 #include "g_window.h"
 #include "c_math.h"
 #include "r_vulkan.h"
+#include "g_clock.h"
 
 #define NDEBUG 1 // are we debug mode?
 
@@ -45,7 +46,7 @@ typedef struct R_RenderState {
  * @returns code
  */
 int
-R_Draw(R_RenderState* state);
+R_Draw(R_RenderState* state, const Clock* clockState);
 
 /**
  * Create the object used to house rendering properties.
