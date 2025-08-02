@@ -51,6 +51,22 @@ typedef struct {
 
 typedef struct {
 
+    VkDescriptorSet* data;
+
+    Uint32 size;
+
+} VKH_DescriptorSetList;
+
+typedef struct {
+
+    VkDescriptorSetLayout* data;
+
+    Uint32 size;
+
+} VKH_DescriptorLayoutList;
+
+typedef struct {
+
     VkShaderModule vert_shader;
     VkShaderModule frag_shader;
 
@@ -59,7 +75,10 @@ typedef struct {
     VkVertexInputAttributeDescription* vert_input_attrib_desc;
     Uint32 vert_input_attrib_desc_count;
 
-    VkDescriptorSetLayout descriptor_layout;
+    VKH_DescriptorSetList descriptorSets;
+    VkDescriptorSetLayout descriptorLayout;
+
+    VkDescriptorPool descriptorPool;
     VkPipelineLayout pipeline_layout;
     VkPipeline pipeline;
 
@@ -345,7 +364,10 @@ VKH_RecordCommandBuffer(
   VKH_FramebufferList framebuffers,
   VkBuffer vertex_buffer,
   VkBuffer index_buffer,
-  Uint32 num_indices);
+  Uint32 num_indices,
+  VkPipelineLayout layout,
+  VKH_DescriptorSetList* sets,
+  Uint32 currentFrame);
 
 /**
  * Determine vulkan's validation layer support based on our validation_layers
@@ -661,19 +683,17 @@ VKH_CreateUniformBuffers(
  */
 VkResult
 VKH_CreateDescriptorPool(
-    VkDevice device,
-    const VkDescriptorSetLayout* layouts,
-    VkDescriptorSet* sets,
-    VkDescriptorPool* pool
-);
+  VkDevice device,
+  VkDescriptorPool* pool);
 
 /**
  * Create descriptor sets.
  */
 VkResult
 VKH_CreateDescriptorSets(VkDevice device,
-  VkDescriptorSetLayout layout,
   VkDescriptorPool pool,
-  VkDescriptorSet* sets);
+  VkDescriptorSetLayout layout,
+  const VKH_UniformBufferList* uniformBuffers,
+  VKH_DescriptorSetList* sets);
 
 #endif // VULKAN_CGAME_H_

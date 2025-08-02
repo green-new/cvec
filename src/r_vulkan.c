@@ -420,7 +420,7 @@ VKH_CreateGraphicsPipeline(
   // VK_POLYGON_MODE_POINT: polygon vertices are drawn as points
   rstr_ci.lineWidth = 1.0f;
   rstr_ci.cullMode = VK_CULL_MODE_BACK_BIT; // cull back faces
-  rstr_ci.frontFace = VK_FRONT_FACE_CLOCKWISE; // vertex order
+  rstr_ci.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // vertex order
   // depth bias usually used in shadow maps
   rstr_ci.depthBiasEnable = VK_FALSE;
   rstr_ci.depthBiasConstantFactor = 0.0f; 
@@ -472,8 +472,8 @@ VKH_CreateGraphicsPipeline(
   VkPipelineLayoutCreateInfo pl_ci = { 0 };
   pl_ci.sType 
     = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pl_ci.setLayoutCount = 0; 
-  pl_ci.pSetLayouts = NULL; 
+  pl_ci.setLayoutCount = 1;
+  pl_ci.pSetLayouts = &pipeline->descriptorLayout; 
   pl_ci.pushConstantRangeCount = 0; 
   pl_ci.pPushConstantRanges = NULL;
 
@@ -631,7 +631,10 @@ VKH_RecordCommandBuffer(
   VKH_FramebufferList framebuffers,
   VkBuffer vertex_buffer,
   VkBuffer index_buffer,
-  Uint32 num_indices
+  Uint32 num_indices,
+  VkPipelineLayout layout,
+  VKH_DescriptorSetList* sets,
+  Uint32 currentFrame
 ) {
   VkCommandBufferBeginInfo buffer_begin_info = { 0 };
   buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -656,9 +659,8 @@ VKH_RecordCommandBuffer(
   render_pass_info.clearValueCount = 1;
   render_pass_info.pClearValues = &clearColor;
 
-  vkCmdBeginRenderPass(buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-
   {  
+    vkCmdBeginRenderPass(buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
     // the viewport and scissor state for the pipeline we created was 
@@ -682,6 +684,17 @@ VKH_RecordCommandBuffer(
     vkCmdBindVertexBuffers(buffer, 0, 1, vertex_buffers, offsets);
 
     vkCmdBindIndexBuffer(buffer, index_buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    // set descriptor sets
+    vkCmdBindDescriptorSets(
+      buffer, 
+      VK_PIPELINE_BIND_POINT_GRAPHICS, 
+      layout, 
+      0, 
+      1, 
+      &sets->data[currentFrame], 
+      0, 
+      NULL);
 
     // issue draw command
     vkCmdDrawIndexed(buffer, num_indices, 1, 0, 0, 0);
@@ -1585,7 +1598,7 @@ VKH_CreateUniformBuffers(
   VkResult res = VK_SUCCESS;
   VkDeviceSize size = sizeof(R_UniformBufferObject);
   for (Uint32 i = 0; i < ubo->size; i++) {
-    VKH_CreateBuffer(
+    res = VKH_CreateBuffer(
       device, 
       gpu, 
       size, 
@@ -1594,6 +1607,11 @@ VKH_CreateUniformBuffers(
         | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
       &ubo->buffer_list[i],
       &ubo->memory_list[i]);
+      
+    if (res != VK_SUCCESS) {
+      G_Log("ERROR", "Failed to create uniform buffer.");
+      return res;
+    }
     
     res = vkMapMemory(device, ubo->memory_list[i], 0, size, 0, &ubo->mapped[i]);
     if (res != VK_SUCCESS) {
@@ -1608,8 +1626,6 @@ VKH_CreateUniformBuffers(
 VkResult
 VKH_CreateDescriptorPool(
   VkDevice device,
-  const VkDescriptorSetLayout* layouts,
-  VkDescriptorSet* sets,
   VkDescriptorPool* pool) {
 
   VkResult res = VK_SUCCESS;
@@ -1634,16 +1650,20 @@ VKH_CreateDescriptorPool(
 
 VkResult
 VKH_CreateDescriptorSets(VkDevice device,
-  VkDescriptorSetLayout layout,
   VkDescriptorPool pool,
-  const VKH_UniformBufferList uniformBuffers,
-  VkDescriptorSet* sets) {
+  VkDescriptorSetLayout layout,
+  const VKH_UniformBufferList* uniformBuffers,
+  VKH_DescriptorSetList* sets) {
 
   VkResult res = VK_SUCCESS;
   
   // create list of layouts (we only use one descriptor set layout)
-  VkDescriptorSetLayout* layouts = NULL;
-  layouts = SDL_calloc(MAX_FRAMES_IN_FLIGHT, sizeof(*layouts));
+  VkDescriptorSetLayout* layouts = SDL_malloc(
+    MAX_FRAMES_IN_FLIGHT * sizeof(VkDescriptorSetLayout));
+  
+  for (Uint32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    layouts[i] = layout;
+  }
 
   // create descriptor set
   VkDescriptorSetAllocateInfo allocInfo = { 0 };
@@ -1652,7 +1672,7 @@ VKH_CreateDescriptorSets(VkDevice device,
   allocInfo.descriptorSetCount = (Uint32) MAX_FRAMES_IN_FLIGHT;
   allocInfo.pSetLayouts = layouts;
 
-  res = vkAllocateDescriptorSets(device, &allocInfo, sets);
+  res = vkAllocateDescriptorSets(device, &allocInfo, sets->data);
   if (res != VK_SUCCESS) {
     G_Log("ERROR", "Failed to allocate descriptor sets.");
     return res;
@@ -1661,13 +1681,13 @@ VKH_CreateDescriptorSets(VkDevice device,
   // create descriptor sets
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     VkDescriptorBufferInfo bufferInfo = { 0 };
-    bufferInfo.buffer = uniformBuffers.buffer_list[i];
+    bufferInfo.buffer = uniformBuffers->buffer_list[i];
     bufferInfo.offset = 0;
-    bufferInfo.range = sizeof(uniformBuffers.buffer_list[i]);
+    bufferInfo.range = sizeof(R_UniformBufferObject);
 
     VkWriteDescriptorSet descriptorWrite = { 0 };
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = sets[i];
+    descriptorWrite.dstSet = sets->data[i];
     descriptorWrite.dstBinding = 0;
     descriptorWrite.dstArrayElement = 0;
     descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;

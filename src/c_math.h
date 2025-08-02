@@ -34,9 +34,10 @@ typedef struct {
 
 typedef struct Orientation {
 
-  vec_t eye;
+  vec_t center;
   vec_t up;
   vec_t right;
+  vec_t forward;
 
 } Orientation;
 
@@ -262,7 +263,9 @@ Mat4_PerspectiveProjection(
     float zFar);
 
 mat4_t
-Mat4_LookAt(Orientation orient);
+Mat4_LookAt(vec_t eye, vec_t target, vec_t up);
+
+mat4_t Mat4_Transpose(mat4_t mat);
 
 #ifndef VEC_IMPL_H_
 
@@ -445,25 +448,31 @@ M_Mat3Identity(void) {
     };
 }
 
-void
+void 
 Vec4_MultiplyMatrix(vec4_t* vec, const mat4_t* mat) {
-    vec->x = (mat->m[0][0] * vec->x) 
-        + (mat->m[0][1] * vec->x) 
-        + (mat->m[0][2] * vec->x)
-        + (mat->m[0][3] * vec->x);
-    vec->y = (mat->m[1][0] * vec->y) 
-        + (mat->m[1][1] * vec->y) 
-        + (mat->m[1][2] * vec->y)
-        + (mat->m[1][3] * vec->y);
-    vec->z = (mat->m[2][0] * vec->z) 
-        + (mat->m[2][1] * vec->z) 
-        + (mat->m[2][2] * vec->z)
-        + (mat->m[2][3] * vec->z);
-    vec->w = (mat->m[3][0] * vec->w) 
-        + (mat->m[3][1] * vec->w) 
-        + (mat->m[3][2] * vec->w)
-        + (mat->m[3][3] * vec->w);
+    float x = vec->x;
+    float y = vec->y;
+    float z = vec->z;
+    float w = vec->w;
+
+    vec->x = mat->m[0][0] * x 
+        + mat->m[0][1] * y 
+        + mat->m[0][2] * z 
+        + mat->m[0][3] * w;
+    vec->y = mat->m[1][0] * x 
+        + mat->m[1][1] * y 
+        + mat->m[1][2] * z 
+        + mat->m[1][3] * w;
+    vec->z = mat->m[2][0] * x 
+        + mat->m[2][1] * y 
+        + mat->m[2][2] * z 
+        + mat->m[2][3] * w;
+    vec->w = mat->m[3][0] * x 
+        + mat->m[3][1] * y 
+        + mat->m[3][2] * z 
+        + mat->m[3][3] * w;
 }
+
 
 mat4_t
 Mat4_TranslationMatrix(float x, float y, float z) {
@@ -477,7 +486,7 @@ Mat4_TranslationMatrix(float x, float y, float z) {
 void
 Mat4_Rotate(mat4_t* mat, vec_t axis, float theta) {
     mat4_t rotation = Mat4_RotationMatrix(axis, theta);
-    mat4_t res = M_MultiplyMat4(&rotation, mat);
+    mat4_t res = M_MultiplyMat4(mat, &rotation);
     *mat = res;
 }
 
@@ -536,59 +545,66 @@ Vec4_Scale(vec4_t* self, float scale) {
 }
 
 mat4_t
-Mat4_PerspectiveProjection(
-    float fov, 
-    float aspect, 
-    float zNear, 
-    float zFar) {
-
+Mat4_PerspectiveProjection(float fovY, float aspect, float zNear, float zFar) {
     mat4_t res = { 0 };
-    res.m[0][0] = 1.0f / (aspect * tanf(fov / 2.0f));
-    res.m[0][1] = 0.0f;
-    res.m[0][2] = 0.0f;
-    res.m[0][3] = 0.0f;
 
-    res.m[1][0] = 0.0f;
-    res.m[1][1] = 1.0f / tanf(fov / 2.0f);
-    res.m[1][2] = 0.0f;
-    res.m[1][3] = 0.0f;
+    float tanHalfFovY = tanf(fovY / 2.0f);
 
-    res.m[2][0] = 0.0f;
-    res.m[2][1] = 0.0f;
-    res.m[2][2] = -((zFar + zNear) / (zFar - zNear));
-    res.m[2][3] = -((2.0f * zFar * zNear) / (zFar - zNear));
-
-    res.m[3][0] = 0.0f;
-    res.m[3][1] = 0.0f;
-    res.m[3][2] = -1.0f;
+    res.m[0][0] = 1.0f / (aspect * tanHalfFovY);
+    res.m[1][1] = -1.0f / tanHalfFovY;
+    res.m[2][2] = zFar / (zFar - zNear);
+    res.m[2][3] = -(zFar * zNear) / (zFar - zNear);
+    res.m[3][2] = -1.0f;  // Vulkan NDC: Z in [0, 1], left-handed
     res.m[3][3] = 0.0f;
+
     return res;
 }
 
+
 mat4_t
-Mat4_LookAt(Orientation orient) {
+Mat4_LookAt(vec_t eye, vec_t target, vec_t up) {
     mat4_t res = { 0 };
-    res.m[0][0] = orient.right.x;
-    res.m[0][1] = orient.right.y;
-    res.m[0][2] = orient.right.z;
-    res.m[0][3] = 0.0f;
 
-    res.m[1][0] = orient.up.x;
-    res.m[1][1] = orient.up.y;
-    res.m[1][2] = orient.up.z;
-    res.m[1][3] = 0.0f;
+    vec_t forward   = M_SubtractVec(&target, &eye);
+    M_NormalizeVec(&forward);
+    vec_t right     = M_Cross(&up, &forward);
+    M_NormalizeVec(&right);
+    vec_t upNew     = M_Cross(&forward, &right);
 
-    res.m[2][0] = orient.eye.x;
-    res.m[2][1] = orient.eye.y;
-    res.m[2][2] = orient.eye.z;
-    res.m[2][3] = 0.0f;
+    res.m[0][0] = right.x;
+    res.m[0][1] = right.y;
+    res.m[0][2] = right.z;
+    res.m[0][3] = -M_Dot(&right, &eye);
+
+    res.m[1][0] = upNew.x;
+    res.m[1][1] = upNew.y;
+    res.m[1][2] = upNew.z;
+    res.m[1][3] = -M_Dot(&up, &eye);
+
+    res.m[2][0] = forward.x;
+    res.m[2][1] = forward.y;
+    res.m[2][2] = forward.z;
+    res.m[2][3] = -M_Dot(&forward, &eye);
 
     res.m[3][0] = 0.0f;
     res.m[3][1] = 0.0f;
     res.m[3][2] = 0.0f;
     res.m[3][3] = 1.0f;
-    return res; 
+
+    return res;
 }
+
+mat4_t Mat4_Transpose(mat4_t mat) {
+    mat4_t result = { 0 };
+
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j)
+            result.m[i][j] = mat.m[j][i];
+
+    return result;
+}
+
+
 
 #endif // VEC_IMPL_H_
 #endif // VEC_H_

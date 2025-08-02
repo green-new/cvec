@@ -103,6 +103,11 @@ R_CreateRenderState(R_RenderState* state) {
         state->vk.swapchain_format.format,
         &state->vk.render_pass
     );
+    
+    /* create descripter set layout before creating the pipeline */
+    VKH_CreateDescriptorSetLayout(
+        state->vk.device, 
+        &state->vk.pipeline.descriptorLayout);
 
     /* set binding description - allocated */
     state->vk.pipeline.vert_input_bind_desc_count = 1;
@@ -128,11 +133,6 @@ R_CreateRenderState(R_RenderState* state) {
         (Uint32[2]) { offsetof(Vertex, position), offsetof(Vertex, color) },
         (VkFormat[2]) { VK_FORMAT_R32G32_SFLOAT, VK_FORMAT_R32G32B32_SFLOAT  },
         state->vk.pipeline.vert_input_attrib_desc);
-    
-    /* create descripter set layout before creating the pipeline */
-    VKH_CreateDescriptorSetLayout(
-        state->vk.device, 
-        &state->vk.pipeline.descriptor_layout);
 
     /* create graphics pipeline */
     VKH_CreateGraphicsPipeline(
@@ -158,12 +158,7 @@ R_CreateRenderState(R_RenderState* state) {
         state->vk.queue_families,
         &state->vk.pool);
 
-    /* create vertex buffer */
-    // Vertex vertices[3] = {
-    //     { .position = { .x = 0.0f, .y = -0.5f }, .color = { .x = 1.0f, .y = 0.0f, .z = 0.0f }},
-    //     { .position = { .x = 0.5f, .y = 0.5f }, .color = { .x = 0.0f, .y = 1.0f, .z = 0.0f }},
-    //     { .position = { .x = 0.5f, .y = 0.5f }, .color = { .x = 0.0f, .y = 0.0f, .z = 1.0f }}
-    // };
+    /* create vertices */
     Vertex vertices[4] = {
         { .position = { -0.5f, -0.5f }, .color = { 1.0f, 0.0f, 0.0f }},
         { .position = { 0.5f, -0.5f }, .color = { 0.0f, 1.0f, 0.0f }},
@@ -171,14 +166,6 @@ R_CreateRenderState(R_RenderState* state) {
         { .position = { -0.5f, 0.5f }, .color = { 1.0f, 1.0f, 1.0f }}
     };
     Uint32 indices[6] = { 0, 1, 2, 2, 3, 0 };
-    VKH_CreateIndexBuffer(state->vk.device,
-        state->vk.gpu,
-        indices,
-        6 * sizeof(*indices),
-        state->vk.graphics_queue,
-        state->vk.pool,
-        &state->vk.index_buffer,
-        &state->vk.index_buffer_memory);
     VKH_CreateVertexBuffer(state->vk.device,
         state->vk.gpu,
         vertices,
@@ -187,15 +174,22 @@ R_CreateRenderState(R_RenderState* state) {
         state->vk.pool,
         &state->vk.vertex_buffer,
         &state->vk.vertex_buffer_memory);
-    
+    VKH_CreateIndexBuffer(state->vk.device,
+        state->vk.gpu,
+        indices,
+        6 * sizeof(*indices),
+        state->vk.graphics_queue,
+        state->vk.pool,
+        &state->vk.index_buffer,
+        &state->vk.index_buffer_memory);
+
+    /* create uniform buffers */
     // create uniform buffers after creating the vertex and index buffers
     state->vk.ubo.size = MAX_FRAMES_IN_FLIGHT;
     state->vk.ubo.buffer_list = SDL_calloc(
         state->vk.ubo.size,
         sizeof(*state->vk.ubo.buffer_list));
-    state->vk.ubo.mapped = SDL_calloc(
-        state->vk.ubo.size,
-        sizeof(char));
+    state->vk.ubo.mapped = SDL_malloc(state->vk.ubo.size * sizeof(void*));
     state->vk.ubo.memory_list = SDL_calloc(
         state->vk.ubo.size,
         sizeof(*state->vk.ubo.memory_list));
@@ -203,6 +197,31 @@ R_CreateRenderState(R_RenderState* state) {
         state->vk.device,
         state->vk.gpu,
         &state->vk.ubo);
+
+    VKH_CreateDescriptorPool(
+        state->vk.device,
+        &state->vk.pipeline.descriptorPool);
+
+    state->vk.pipeline.descriptorSets.size = MAX_FRAMES_IN_FLIGHT;
+    state->vk.pipeline.descriptorSets.data = SDL_malloc(
+        MAX_FRAMES_IN_FLIGHT * sizeof(VkDescriptorSet));
+    
+    if (!state->vk.pipeline.descriptorSets.data) {
+        G_Log("ERROR", "Failed to allocate descriptor sets data array.");
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+    
+    res = VKH_CreateDescriptorSets(
+        state->vk.device,
+        state->vk.pipeline.descriptorPool,
+        state->vk.pipeline.descriptorLayout,
+        &state->vk.ubo,
+        &state->vk.pipeline.descriptorSets);
+        
+    if (res != VK_SUCCESS) {
+        G_Log("ERROR", "Failed to create descriptor sets.");
+        return res;
+    }
 
     // Command buffer size must be equivalent to the MAX FRAMES IN FLIGHT.
     state->vk.command_buffers.size = MAX_FRAMES_IN_FLIGHT;
@@ -214,7 +233,7 @@ R_CreateRenderState(R_RenderState* state) {
         state->vk.device,
         state->vk.pool,
         &state->vk.command_buffers);
-
+        
     /**
      * Create synchronization objects
      * Each object has a length of MAX_FRAMES_IN_FLIGHT
@@ -261,16 +280,44 @@ R_DestroyRenderState(R_RenderState* state) {
             framebuffer, 
             NULL);
     }
+    
+    // Clean up framebuffers array
+    if (state->vk.framebuffers.data) {
+        SDL_free(state->vk.framebuffers.data);
+        state->vk.framebuffers.data = NULL;
+    }
     for (Uint32 i = 0; i < state->vk.image_views.size; i++) {
         VkImageView view = state->vk.image_views.data[i];
         vkDestroyImageView(state->vk.device, view, NULL);
     }
+    
+    // Clean up image views array
+    if (state->vk.image_views.data) {
+        SDL_free(state->vk.image_views.data);
+        state->vk.image_views.data = NULL;
+    }
     vkDestroySwapchainKHR(state->vk.device, state->vk.swapchain, NULL);
+
+    // Clean up images array
+    if (state->vk.images.data) {
+        SDL_free(state->vk.images.data);
+        state->vk.images.data = NULL;
+    }
 
     vkDestroyPipeline(state->vk.device, state->vk.pipeline.pipeline, NULL);
     vkDestroyPipelineLayout(
         state->vk.device, state->vk.pipeline.pipeline_layout, NULL);
     vkDestroyRenderPass(state->vk.device, state->vk.render_pass, NULL);
+
+    // Clean up pipeline vertex input arrays
+    if (state->vk.pipeline.vert_input_bind_desc) {
+        SDL_free(state->vk.pipeline.vert_input_bind_desc);
+        state->vk.pipeline.vert_input_bind_desc = NULL;
+    }
+    if (state->vk.pipeline.vert_input_attrib_desc) {
+        SDL_free(state->vk.pipeline.vert_input_attrib_desc);
+        state->vk.pipeline.vert_input_attrib_desc = NULL;
+    }
 
     // destroy uniform buffer list before the descriptor set layout
     for (Uint32 i = 0; i < state->vk.ubo.size; i++) {
@@ -278,10 +325,21 @@ R_DestroyRenderState(R_RenderState* state) {
         vkFreeMemory(state->vk.device, state->vk.ubo.memory_list[i], NULL);
     }
 
+    vkDestroyDescriptorPool(
+        state->vk.device, 
+        state->vk.pipeline.descriptorPool, 
+        NULL);
+
+    // Clean up descriptor sets data array
+    if (state->vk.pipeline.descriptorSets.data) {
+        SDL_free(state->vk.pipeline.descriptorSets.data);
+        state->vk.pipeline.descriptorSets.data = NULL;
+    }
+
     // cleanup descriptor set layout after swapchain
     vkDestroyDescriptorSetLayout(
         state->vk.device,
-        state->vk.pipeline.descriptor_layout,
+        state->vk.pipeline.descriptorLayout,
         NULL);
 
     // cleanup vertex buffer/index buffer after destroying the swapchain stuff
@@ -309,6 +367,12 @@ R_DestroyRenderState(R_RenderState* state) {
     
     vkDestroyCommandPool(state->vk.device, state->vk.pool, NULL);
 
+    // Clean up command buffers array
+    if (state->vk.command_buffers.data) {
+        SDL_free(state->vk.command_buffers.data);
+        state->vk.command_buffers.data = NULL;
+    }
+
     vkDestroyDevice(state->vk.device, NULL);
     
     vkDestroySurfaceKHR(state->vk.instance, state->vk.surface, NULL);
@@ -323,17 +387,23 @@ R_UpdateUniformBuffer(R_RenderState* state, const Clock* clockState) {
     R_UniformBufferObject ubo = { 0 };
 
     ubo.model = M_Mat4Identity();
-    Mat4_Rotate(&ubo.model, (vec_t) { .x = 0.0f, .y = 0.0f, .z = 1.0f }, time * M_PI_2);
+    const float angle       = 0.0005f * time;
+    const float xTranslate  = 0.0005f * time;
+    // const mat4_t translate  = Mat4_TranslationMatrix(xTranslate, xTranslate, xTranslate);
+    // ubo.model               = M_MultiplyMat4(&ubo.model, &translate);
+    Mat4_Rotate(&ubo.model, (vec_t) { .x = 0.0f, .y = 0.0f, .z = 1.0f }, angle);
+    ubo.model = Mat4_Transpose(ubo.model);
 
     ubo.view = Mat4_LookAt(
-        (Orientation) { 
-            .eye = { .x = 0.0f, .y = 0.0f, .z = 0.0f },
-            .right = { .x = 0.0f, .y = 1.0f, .z = 0.0f },
-            .up = { .x = 0.0f, .y = 0.0f, .z = 1.0f }
-        }
+        (vec_t) { .x = 2.0f, .y = 2.0f, .z = 2.0f },    // eye position
+        (vec_t) { .x = 0.0f, .y = 0.0f, .z = 0.0f },    // target
+        (vec_t) { .x = 0.0f, .y = 0.0f, .z = 1.0f }     // up direction
     );
+    const mat4_t viewT = Mat4_TranslationMatrix(xTranslate, xTranslate, xTranslate);
+    ubo.view = M_MultiplyMat4(&ubo.view, &viewT);
+    ubo.view = Mat4_Transpose(ubo.view);
 
-    static const float fov = 60.0f;
+    static const float fov = M_PI / 3.0f;
     float aspect = state->vk.swapchain_extent.width 
         / (float) state->vk.swapchain_extent.height;
     static float zNear = 0.01f;
@@ -343,8 +413,10 @@ R_UpdateUniformBuffer(R_RenderState* state, const Clock* clockState) {
         aspect,
         zNear,
         zFar);
+    ubo.proj = Mat4_Transpose(ubo.proj);
+    // ubo.proj = M_Mat4Identity();
 
-    SDL_memcpy(&state->vk.ubo.mapped[state->current_frame], &ubo, sizeof(ubo));
+    SDL_memcpy(state->vk.ubo.mapped[state->current_frame], &ubo, sizeof(ubo));
 }
 
 int
@@ -404,7 +476,10 @@ R_Draw(R_RenderState* state, const Clock* clockState) {
         state->vk.framebuffers,
         state->vk.vertex_buffer,
         state->vk.index_buffer,
-        6
+        6,
+        state->vk.pipeline.pipeline_layout,
+        &state->vk.pipeline.descriptorSets,
+        state->current_frame
     );
 
     // update uniform buffer
